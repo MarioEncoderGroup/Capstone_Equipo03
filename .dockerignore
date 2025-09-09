@@ -1,0 +1,49 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+*.md
+
+# Environment files
+.env*
+
+# IDE files
+.vscode/
+.idea/
+
+# Temporary files
+*.tmp
+*.log
+tmp/
+logs/
+
+# Test files
+*_test.go
+coverage.out
+coverage.html
+
+# Development tools
+Makefile
+air_tmp/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local development
+docker-compose.yml
+local_config.yml
+
+# Build artifacts
+misviaticos-api
+
+# Uploaded files (not needed in container)
+uploads/
+receipts/
+
+# AI Agent Configuration (development guidance only)
+mv-architecture-agent.md
+*-agent.md
+*-architecture.md
