@@ -10,6 +10,7 @@ import (
 	redis_custom "github.com/JoseLuis21/mv-backend/internal/libraries/redis"
 	"github.com/JoseLuis21/mv-backend/internal/middleware"
 	"github.com/JoseLuis21/mv-backend/internal/routes"
+	"github.com/JoseLuis21/mv-backend/internal/shared/utils"
 	"github.com/JoseLuis21/mv-backend/internal/shared/validatorapi"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
@@ -38,7 +39,7 @@ func NewServer(host, port string, dbControl *postgresql.PostgresqlClient, dbTena
 func (s *Server) Start() error {
 	// Configure Redis for rate limiting and caching
 	store := redis_custom.New(redis_custom.Config{
-		Host:      getEnvOrDefault("REDIS_HOST", "localhost"),
+		Host:      utils.GetEnvOrDefault("REDIS_HOST", "localhost"),
 		Port:      atoiDefault(os.Getenv("REDIS_PORT"), 6379),
 		Username:  os.Getenv("REDIS_USERNAME"),
 		Password:  os.Getenv("REDIS_PASSWORD"),
@@ -80,7 +81,7 @@ func (s *Server) Start() error {
 
 	// CORS configuration for MisViaticos frontend
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     getEnvOrDefault("BASE_URL_FRONTEND", "http://localhost:3000"),
+		AllowOrigins:     utils.GetEnvOrDefault("BASE_URL_FRONTEND", "http://localhost:3000"),
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, X-Tenant-ID",
 		AllowMethods:     "GET,POST,PUT,DELETE,PATCH,OPTIONS",
 		AllowCredentials: true,
@@ -171,11 +172,4 @@ func atoiDefault(s string, defaultValue int) int {
 		return defaultValue
 	}
 	return val
-}
-
-func getEnvOrDefault(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
 }

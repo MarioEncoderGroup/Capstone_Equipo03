@@ -37,8 +37,8 @@ func main() {
 	slog.Info("✅ Tenant database connected")
 
 	// Create server instance with MisViaticos configuration
-	host := getEnvOrDefault("HOST", "0.0.0.0")
-	port := getEnvOrDefault("PORT", "8080")
+	host := utils.GetEnvOrDefault("HOST", "0.0.0.0")
+	port := utils.GetEnvOrDefault("PORT", "8080")
 	
 	serverApi := server.NewServer(host, port, dbControl, dbTenant)
 	
@@ -50,9 +50,3 @@ func main() {
 	}
 }
 
-func getEnvOrDefault(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
-}
