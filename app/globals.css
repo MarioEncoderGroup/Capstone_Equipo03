@@ -3,14 +3,17 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  
+  /* MisViáticos Brand Colors - Exactos del sitio original */
+  --mv-purple-primary: #8B5CF6;
+  --mv-purple-secondary: #A855F7;
+  --mv-purple-light: #C084FC;
+  --mv-purple-dark: #7C3AED;
+  --mv-gradient-start: #8B5CF6;
+  --mv-gradient-end: #A855F7;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+/* Theme variables handled by Tailwind CSS configuration */
 
 @media (prefers-color-scheme: dark) {
   :root {
@@ -23,4 +26,72 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Custom Components */
+@layer components {
+  /* Gradient Text */
+  .gradient-text {
+    @apply bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent;
+  }
+  
+  /* Gradient Button */
+  .btn-gradient {
+    @apply bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white px-8 py-4 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 hover:shadow-lg;
+  }
+  
+  /* Secondary Button */
+  .btn-secondary {
+    @apply text-purple-600 hover:text-purple-700 px-8 py-4 rounded-lg font-semibold transition-colors duration-200 border border-purple-200 hover:border-purple-300 hover:bg-purple-50;
+  }
+  
+  /* Card Hover Effect */
+  .card-hover {
+    @apply p-8 rounded-2xl hover:bg-gradient-to-br hover:from-purple-50 hover:to-violet-50 transition-all duration-300;
+  }
+  
+  /* Feature Icon */
+  .feature-icon {
+    @apply w-16 h-16 bg-gradient-to-br from-purple-600 to-violet-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300;
+  }
+  
+  /* Navigation Link */
+  .nav-link {
+    @apply text-gray-700 hover:text-purple-600 transition-colors duration-200;
+  }
+}
+
+/* Custom Utilities */
+@layer utilities {
+  /* Animation Classes */
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+  
+  .animate-pulse-slow {
+    animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  .animation-delay-200 {
+    animation-delay: 200ms;
+  }
+  
+  .animation-delay-400 {
+    animation-delay: 400ms;
+  }
+}
+
+/* Hero background pattern */
+.hero-dots-pattern {
+  background-color: white;
+  background-image: 
+    radial-gradient(circle at 2px 2px, rgba(147, 51, 234, 0.3) 1px, transparent 0),
+    radial-gradient(circle at 22px 22px, rgba(124, 58, 237, 0.2) 1px, transparent 0);
+  background-size: 20px 20px, 40px 40px;
+}
+
+/* Custom Animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
 }
