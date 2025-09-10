@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/JoseLuis21/mv-backend/internal/config"
 	"github.com/JoseLuis21/mv-backend/internal/libraries/postgresql"
 	redis_custom "github.com/JoseLuis21/mv-backend/internal/libraries/redis"
 	"github.com/JoseLuis21/mv-backend/internal/middleware"
@@ -153,7 +154,16 @@ func (s *Server) Start() error {
 		})
 	})
 
-	// Define public routes (authentication, registration)
+	// Initialize dependency injection for clean architecture
+	dependencies, err := config.NewDependencies(s.dbControl)
+	if err != nil {
+		return err
+	}
+
+	// Configure authentication routes with dependency injection
+	routes.AuthRoutes(app, dependencies.AuthController)
+
+	// Define public routes (authentication, registration) - Legacy routes
 	routes.PublicRoutes(app)
 
 	// Define private routes (expenses, receipts, reports)

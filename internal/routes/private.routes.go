@@ -1,10 +1,10 @@
 package routes
 
 import (
+	"github.com/gofiber/fiber/v2"
 	"github.com/JoseLuis21/mv-backend/internal/controllers"
 	"github.com/JoseLuis21/mv-backend/internal/libraries/postgresql"
 	"github.com/JoseLuis21/mv-backend/internal/middleware"
-	"github.com/gofiber/fiber/v2"
 )
 
 // PrivateRoutes defines all private routes for MisViaticos API

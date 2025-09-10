@@ -7,17 +7,11 @@ import (
 // Placeholder controllers - These will be implemented in the next phase
 // This file exists to make the project compile with the route definitions
 
-// Authentication controllers
-func Register(c *fiber.Ctx) error {
-	return c.Status(501).JSON(fiber.Map{"message": "Register endpoint - Coming soon"})
-}
+// Authentication controllers - Replaced with real implementations in auth_controller.go
+// These are kept for backward compatibility during transition
 
 func Login(c *fiber.Ctx) error {
 	return c.Status(501).JSON(fiber.Map{"message": "Login endpoint - Coming soon"})
-}
-
-func VerifyUserEmail(c *fiber.Ctx) error {
-	return c.Status(501).JSON(fiber.Map{"message": "Verify email endpoint - Coming soon"})
 }
 
 func ForgotPassword(c *fiber.Ctx) error {
@@ -30,6 +24,15 @@ func ResetPassword(c *fiber.Ctx) error {
 
 func RefreshToken(c *fiber.Ctx) error {
 	return c.Status(501).JSON(fiber.Map{"message": "Refresh token endpoint - Coming soon"})
+}
+
+// Legacy functions - these will be replaced by AuthController methods
+func Register(c *fiber.Ctx) error {
+	return c.Status(501).JSON(fiber.Map{"message": "Use AuthController.Register instead"})
+}
+
+func VerifyUserEmail(c *fiber.Ctx) error {
+	return c.Status(501).JSON(fiber.Map{"message": "Use AuthController.VerifyUserEmail instead"})
 }
 
 // Tenant controllers
