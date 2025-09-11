@@ -10,8 +10,10 @@ import (
 type User struct {
 	ID                     uuid.UUID  `json:"id"`
 	Username               string     `json:"username"`
+	FirstName              string     `json:"first_name"`
+	LastName               string     `json:"last_name"`
+	FullName               string     `json:"full_name"` // Calculado: FirstName + " " + LastName
 	Phone                  *string    `json:"phone"`
-	FullName               string     `json:"full_name"`
 	IdentificationNumber   *string    `json:"identification_number"` // RUT chileno
 	Email                  string     `json:"email"`
 	EmailToken             *string    `json:"email_token"`
@@ -34,12 +36,29 @@ type User struct {
 
 // NewUser crea una nueva instancia de usuario con valores por defecto
 // Aplica reglas de negocio iniciales (usuario inactivo hasta verificar email)
-func NewUser(username, fullName, email, hashedPassword string) *User {
+// Genera username automáticamente basado en el email
+func NewUser(firstName, lastName, email, phone, hashedPassword string) *User {
 	now := time.Now()
+	
+	// Generar username automáticamente del email (antes del @)
+	username := generateUsernameFromEmail(email)
+	
+	// Construir full name a partir de first name y last name
+	fullName := firstName + " " + lastName
+	
+	// Manejar phone como puntero (puede ser vacío)
+	var phonePtr *string
+	if phone != "" {
+		phonePtr = &phone
+	}
+	
 	return &User{
 		ID:            uuid.New(),
 		Username:      username,
+		FirstName:     firstName,
+		LastName:      lastName,
 		FullName:      fullName,
+		Phone:         phonePtr,
 		Email:         email,
 		Password:      hashedPassword,
 		EmailVerified: false,
@@ -47,6 +66,40 @@ func NewUser(username, fullName, email, hashedPassword string) *User {
 		Created:       now,
 		Updated:       now,
 	}
+}
+
+// generateUsernameFromEmail genera un username único basado en el email
+func generateUsernameFromEmail(email string) string {
+	// Tomar la parte antes del @ y limpiar caracteres especiales
+	username := email
+	if atIndex := findAtIndex(email); atIndex != -1 {
+		username = email[:atIndex]
+	}
+	
+	// Limpiar caracteres especiales (mantener solo alfanuméricos)
+	cleaned := ""
+	for _, char := range username {
+		if (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') {
+			cleaned += string(char)
+		}
+	}
+	
+	// Asegurar que tenga al menos 3 caracteres
+	if len(cleaned) < 3 {
+		cleaned = "user" + cleaned
+	}
+	
+	return cleaned
+}
+
+// findAtIndex encuentra la posición del @ en el email
+func findAtIndex(email string) int {
+	for i, char := range email {
+		if char == '@' {
+			return i
+		}
+	}
+	return -1
 }
 
 // IsEmailTokenValid valida si el token de email es válido y no ha expirado

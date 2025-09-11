@@ -12,6 +12,7 @@ import (
 	"github.com/JoseLuis21/mv-backend/internal/core/user/domain"
 	"github.com/JoseLuis21/mv-backend/internal/core/user/ports"
 	"github.com/JoseLuis21/mv-backend/internal/libraries/postgresql"
+	sharedErrors "github.com/JoseLuis21/mv-backend/internal/shared/errors"
 )
 
 // PostgreSQLUserRepository implementa UserRepository usando PostgreSQL
@@ -108,7 +109,7 @@ func (r *PostgreSQLUserRepository) GetByEmail(ctx context.Context, email string)
 	user, err := r.scanUser(r.client.QueryRow(ctx, query, email))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, fmt.Errorf("usuario no encontrado")
+			return nil, sharedErrors.ErrUserNotFound
 		}
 		return nil, fmt.Errorf("error obteniendo usuario: %w", err)
 	}
@@ -152,7 +153,7 @@ func (r *PostgreSQLUserRepository) GetByEmailToken(ctx context.Context, token st
 	user, err := r.scanUser(r.client.QueryRow(ctx, query, token))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, fmt.Errorf("usuario no encontrado")
+			return nil, sharedErrors.ErrUserNotFound
 		}
 		return nil, fmt.Errorf("error obteniendo usuario: %w", err)
 	}
@@ -306,6 +307,29 @@ func (r *PostgreSQLUserRepository) RemoveUserFromTenant(ctx context.Context, use
 	}
 
 	return nil
+}
+
+// GetTenantsByUser obtiene todos los tenant_users por userID (alias de GetUserTenants)
+func (r *PostgreSQLUserRepository) GetTenantsByUser(ctx context.Context, userID uuid.UUID) ([]*domain.TenantUser, error) {
+	// Delegamos a GetUserTenants ya que ambos métodos hacen lo mismo
+	return r.GetUserTenants(ctx, userID)
+}
+
+// UserHasAccessToTenant verifica si un usuario tiene acceso a un tenant
+func (r *PostgreSQLUserRepository) UserHasAccessToTenant(ctx context.Context, userID, tenantID uuid.UUID) (bool, error) {
+	query := `
+		SELECT EXISTS(
+			SELECT 1 FROM tenant_users 
+			WHERE user_id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+		)`
+	
+	var exists bool
+	err := r.client.QueryRow(ctx, query, userID, tenantID).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("error verificando acceso del usuario al tenant: %w", err)
+	}
+
+	return exists, nil
 }
 
 // scanUser escanea una fila de usuario desde la base de datos

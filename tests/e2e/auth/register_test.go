@@ -27,7 +27,7 @@ func TestRegisterEndpoint_UserRegistration(t *testing.T) {
 		helpers.AssertSuccessResponse(t, apiResp)
 		
 		// Verificar campos de respuesta
-		helpers.AssertContainsField(t, apiResp, "user_id")
+		helpers.AssertContainsField(t, apiResp, "id")
 		helpers.AssertFieldEquals(t, apiResp, "requires_email_verification", true)
 		
 		// No debe tener tenant_id para registro individual
@@ -53,31 +53,11 @@ func TestRegisterEndpoint_UserRegistration(t *testing.T) {
 		helpers.AssertErrorCode(t, apiResp, "USER_ALREADY_EXISTS")
 	})
 
-	t.Run("Invalid RUT registration", func(t *testing.T) {
-		// Arrange
-		reqBody := helpers.CreateInvalidRUTRequest()
-		
-		// Act
-		resp := server.MakeRequest(t, "POST", "/api/v1/auth/register", reqBody)
-		
-		// Assert
-		helpers.AssertStatusCode(t, resp, http.StatusBadRequest)
-		
-		apiResp := helpers.ParseJSONResponse(t, resp)
-		helpers.AssertErrorResponse(t, apiResp)
-		
-		// Debería contener información sobre errores de validación
-		if !strings.Contains(apiResp.Message, "validación") && 
-		   !strings.Contains(apiResp.Message, "RUT") {
-			t.Errorf("Error message should mention RUT validation: %s", apiResp.Message)
-		}
-	})
-
 	t.Run("Missing required fields", func(t *testing.T) {
 		// Arrange
 		reqBody := map[string]interface{}{
-			"username": "testuser",
-			// Missing required fields: full_name, email, password
+			"firstname": "Usuario",
+			// Missing required fields: lastname, email, phone, password, password_confirm
 		}
 		
 		// Act
@@ -94,67 +74,7 @@ func TestRegisterEndpoint_UserRegistration(t *testing.T) {
 		// Arrange
 		reqBody := helpers.CreateValidRegisterRequest()
 		reqBody["password"] = "123" // Very weak password
-		
-		// Act
-		resp := server.MakeRequest(t, "POST", "/api/v1/auth/register", reqBody)
-		
-		// Assert
-		helpers.AssertStatusCode(t, resp, http.StatusBadRequest)
-		
-		apiResp := helpers.ParseJSONResponse(t, resp)
-		helpers.AssertErrorResponse(t, apiResp)
-	})
-}
-
-func TestRegisterEndpoint_TenantRegistration(t *testing.T) {
-	server, cleanup := helpers.CreateTestServer(t)
-	defer cleanup()
-
-	t.Run("Valid tenant registration", func(t *testing.T) {
-		// Arrange
-		reqBody := helpers.CreateValidTenantRegisterRequest()
-		
-		// Act
-		resp := server.MakeRequest(t, "POST", "/api/v1/auth/register", reqBody)
-		
-		// Assert
-		helpers.AssertStatusCode(t, resp, http.StatusCreated)
-		
-		apiResp := helpers.ParseJSONResponse(t, resp)
-		helpers.AssertSuccessResponse(t, apiResp)
-		
-		// Verificar campos de respuesta para tenant
-		helpers.AssertContainsField(t, apiResp, "user_id")
-		helpers.AssertContainsField(t, apiResp, "tenant_id")
-		helpers.AssertFieldEquals(t, apiResp, "requires_email_verification", true)
-		
-		// Verificar que el mensaje mencione empresa
-		if !strings.Contains(apiResp.Message, "Empresa") {
-			t.Errorf("Message should mention empresa for tenant registration: %s", apiResp.Message)
-		}
-	})
-
-	t.Run("Invalid tenant RUT", func(t *testing.T) {
-		// Arrange
-		reqBody := helpers.CreateValidTenantRegisterRequest()
-		tenantData := reqBody["tenant_data"].(map[string]interface{})
-		tenantData["rut"] = "76.123.456-X" // Invalid RUT
-		
-		// Act
-		resp := server.MakeRequest(t, "POST", "/api/v1/auth/register", reqBody)
-		
-		// Assert
-		helpers.AssertStatusCode(t, resp, http.StatusBadRequest)
-		
-		apiResp := helpers.ParseJSONResponse(t, resp)
-		helpers.AssertErrorResponse(t, apiResp)
-	})
-
-	t.Run("Missing tenant data", func(t *testing.T) {
-		// Arrange
-		reqBody := helpers.CreateValidRegisterRequest()
-		reqBody["create_tenant"] = true
-		// Missing tenant_data
+		reqBody["password_confirm"] = "123"
 		
 		// Act
 		resp := server.MakeRequest(t, "POST", "/api/v1/auth/register", reqBody)
@@ -324,7 +244,8 @@ func BenchmarkRegisterEndpoint(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		// Cambiar email para evitar duplicados
 		reqBody["email"] = fmt.Sprintf("test%d@example.cl", i)
-		reqBody["username"] = fmt.Sprintf("testuser%d", i)
+		reqBody["firstname"] = fmt.Sprintf("Test %d", i)
+		reqBody["lastname"] = fmt.Sprintf("User %d", i)
 		
 		server.MakeRequest(&testing.T{}, "POST", "/api/v1/auth/register", reqBody)
 	}

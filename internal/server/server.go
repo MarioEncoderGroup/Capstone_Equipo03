@@ -167,7 +167,7 @@ func (s *Server) Start() error {
 	routes.PublicRoutes(app)
 
 	// Define private routes (expenses, receipts, reports)
-	routes.PrivateRoutes(app, s.dbControl)
+	routes.PrivateRoutes(app, s.dbControl, dependencies.TenantController)
 
 	// Start server
 	return app.Listen(s.host + ":" + s.port)

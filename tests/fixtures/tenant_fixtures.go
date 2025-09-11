@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/JoseLuis21/mv-backend/internal/core/tenant/domain"
+	tenantDomain "github.com/JoseLuis21/mv-backend/internal/core/tenant/domain"
 )
 
 // TenantFixtures provides predefined tenant data for testing
@@ -16,8 +16,8 @@ func NewTenantFixtures() *TenantFixtures {
 }
 
 // ValidTenant returns a valid tenant for testing
-func (f *TenantFixtures) ValidTenant(createdBy uuid.UUID) *domain.Tenant {
-	return domain.NewTenant(
+func (f *TenantFixtures) ValidTenant(createdBy uuid.UUID) *tenantDomain.Tenant {
+	return tenantDomain.NewTenant(
 		"76.123.456-0",
 		"Empresa de Prueba SpA",
 		"contacto@empresa.cl",
@@ -34,8 +34,8 @@ func (f *TenantFixtures) ValidTenant(createdBy uuid.UUID) *domain.Tenant {
 }
 
 // TenantWithDifferentRUT returns a tenant with different RUT
-func (f *TenantFixtures) TenantWithDifferentRUT(createdBy uuid.UUID) *domain.Tenant {
-	return domain.NewTenant(
+func (f *TenantFixtures) TenantWithDifferentRUT(createdBy uuid.UUID) *tenantDomain.Tenant {
+	return tenantDomain.NewTenant(
 		"77.456.789-0",
 		"Otra Empresa Ltda",
 		"info@otraempresa.cl",
@@ -52,28 +52,28 @@ func (f *TenantFixtures) TenantWithDifferentRUT(createdBy uuid.UUID) *domain.Ten
 }
 
 // ActiveTenant returns an active tenant
-func (f *TenantFixtures) ActiveTenant(createdBy uuid.UUID) *domain.Tenant {
+func (f *TenantFixtures) ActiveTenant(createdBy uuid.UUID) *tenantDomain.Tenant {
 	tenant := f.ValidTenant(createdBy)
 	tenant.Status = "active"
 	return tenant
 }
 
 // InactiveTenant returns an inactive tenant
-func (f *TenantFixtures) InactiveTenant(createdBy uuid.UUID) *domain.Tenant {
+func (f *TenantFixtures) InactiveTenant(createdBy uuid.UUID) *tenantDomain.Tenant {
 	tenant := f.ValidTenant(createdBy)
 	tenant.Status = "inactive"
 	return tenant
 }
 
 // SuspendedTenant returns a suspended tenant
-func (f *TenantFixtures) SuspendedTenant(createdBy uuid.UUID) *domain.Tenant {
+func (f *TenantFixtures) SuspendedTenant(createdBy uuid.UUID) *tenantDomain.Tenant {
 	tenant := f.ValidTenant(createdBy)
 	tenant.Status = "suspended"
 	return tenant
 }
 
 // TenantWithLogo returns a tenant with logo URL
-func (f *TenantFixtures) TenantWithLogo(createdBy uuid.UUID) *domain.Tenant {
+func (f *TenantFixtures) TenantWithLogo(createdBy uuid.UUID) *tenantDomain.Tenant {
 	tenant := f.ValidTenant(createdBy)
 	logo := "https://empresa.cl/logo.png"
 	tenant.Logo = &logo
@@ -81,14 +81,14 @@ func (f *TenantFixtures) TenantWithLogo(createdBy uuid.UUID) *domain.Tenant {
 }
 
 // TenantsForBulkTesting returns multiple tenants for bulk operations
-func (f *TenantFixtures) TenantsForBulkTesting(count int, createdBy uuid.UUID) []*domain.Tenant {
-	tenants := make([]*domain.Tenant, count)
+func (f *TenantFixtures) TenantsForBulkTesting(count int, createdBy uuid.UUID) []*tenantDomain.Tenant {
+	tenants := make([]*tenantDomain.Tenant, count)
 	for i := 0; i < count; i++ {
 		// Generate valid RUT for each tenant
 		rutNumber := 76123456 + i
 		verificator := f.calculateRUTVerificator(rutNumber)
 		
-		tenants[i] = domain.NewTenant(
+		tenants[i] = tenantDomain.NewTenant(
 			fmt.Sprintf("%s-%s", f.formatRUT(rutNumber), verificator),
 			fmt.Sprintf("Empresa %d SpA", i+1),
 			fmt.Sprintf("contacto%d@empresa%d.cl", i+1, i+1),

@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/JoseLuis21/mv-backend/internal/core/tenant/adapters"
-	"github.com/JoseLuis21/mv-backend/internal/core/tenant/domain"
+	tenantDomain "github.com/JoseLuis21/mv-backend/internal/core/tenant/domain"
 	"github.com/JoseLuis21/mv-backend/tests/helpers"
 )
 
@@ -24,7 +24,7 @@ func TestTenantRepository_Create(t *testing.T) {
 	userID := uuid.New()
 	
 	// Test data
-	tenant := domain.NewTenant(
+	tenant := tenantDomain.NewTenant(
 		"76.123.456-7",
 		"Empresa de Prueba SpA",
 		"contacto@empresa.cl",
@@ -57,8 +57,8 @@ func TestTenantRepository_Create(t *testing.T) {
 		t.Errorf("Expected business name %s, got %s", tenant.BusinessName, retrieved.BusinessName)
 	}
 	
-	if retrieved.RUT != tenant.RUT {
-		t.Errorf("Expected RUT %s, got %s", tenant.RUT, retrieved.RUT)
+	if retrieved.Rut != tenant.Rut {
+		t.Errorf("Expected RUT %s, got %s", tenant.Rut, retrieved.Rut)
 	}
 	
 	if retrieved.Email != tenant.Email {
@@ -78,7 +78,7 @@ func TestTenantRepository_GetByRUT(t *testing.T) {
 	userID := uuid.New()
 	
 	// Create test tenant
-	tenant := domain.NewTenant(
+	tenant := tenantDomain.NewTenant(
 		"76.123.456-7",
 		"Empresa de Prueba SpA",
 		"contacto@empresa.cl",
@@ -99,7 +99,7 @@ func TestTenantRepository_GetByRUT(t *testing.T) {
 	}
 	
 	// Test - Find existing tenant
-	retrieved, err := repo.GetByRUT(ctx, tenant.RUT)
+	retrieved, err := repo.GetByRUT(ctx, tenant.Rut)
 	if err != nil {
 		t.Fatalf("Failed to get tenant by RUT: %v", err)
 	}
@@ -137,7 +137,7 @@ func TestTenantRepository_ExistsByRUT(t *testing.T) {
 	
 	// Create tenant
 	userID := uuid.New()
-	tenant := domain.NewTenant(
+	tenant := tenantDomain.NewTenant(
 		rut,
 		"Empresa de Prueba SpA",
 		"contacto@empresa.cl",
@@ -179,7 +179,7 @@ func TestTenantRepository_Update(t *testing.T) {
 	userID := uuid.New()
 	
 	// Create tenant
-	tenant := domain.NewTenant(
+	tenant := tenantDomain.NewTenant(
 		"76.123.456-7",
 		"Empresa de Prueba SpA",
 		"contacto@empresa.cl",
@@ -241,7 +241,7 @@ func TestTenantRepository_SoftDelete(t *testing.T) {
 	userID := uuid.New()
 	
 	// Create tenant
-	tenant := domain.NewTenant(
+	tenant := tenantDomain.NewTenant(
 		"76.123.456-7",
 		"Empresa de Prueba SpA",
 		"contacto@empresa.cl",
@@ -274,7 +274,7 @@ func TestTenantRepository_SoftDelete(t *testing.T) {
 	}
 	
 	// Verify tenant doesn't exist in searches
-	exists, err := repo.ExistsByRUT(ctx, tenant.RUT)
+	exists, err := repo.ExistsByRUT(ctx, tenant.Rut)
 	if err != nil {
 		t.Fatalf("Failed to check RUT existence: %v", err)
 	}
@@ -304,7 +304,7 @@ func TestTenantRepository_GetNextNodeNumber(t *testing.T) {
 	
 	// Create a tenant
 	userID := uuid.New()
-	tenant := domain.NewTenant(
+	tenant := tenantDomain.NewTenant(
 		"76.123.456-7",
 		"Empresa de Prueba SpA",
 		"contacto@empresa.cl",
@@ -351,7 +351,7 @@ func BenchmarkTenantRepository_Create(b *testing.B) {
 	
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		tenant := domain.NewTenant(
+		tenant := tenantDomain.NewTenant(
 			fmt.Sprintf("76.123.%03d-%d", i%900+100, (i%9)+1),
 			fmt.Sprintf("Empresa %d SpA", i),
 			fmt.Sprintf("contacto%d@empresa.cl", i),
@@ -383,7 +383,7 @@ func BenchmarkTenantRepository_GetByRUT(b *testing.B) {
 	userID := uuid.New()
 	
 	// Create test tenant
-	tenant := domain.NewTenant(
+	tenant := tenantDomain.NewTenant(
 		"76.123.456-7",
 		"Empresa de Prueba SpA",
 		"contacto@empresa.cl",

@@ -3,7 +3,6 @@ package routes
 import (
 	"time"
 	"github.com/gofiber/fiber/v2"
-	"github.com/JoseLuis21/mv-backend/internal/controllers"
 )
 
 // PublicRoutes defines all public routes for MisViaticos API
@@ -22,7 +21,8 @@ func PublicRoutes(app *fiber.App) *fiber.App {
 
 	// Authentication routes - DEPRECATED
 	// These routes are now handled by AuthRoutes() function
-	// Keeping legacy routes for backward compatibility during migration
+	// Legacy routes commented out as they're now managed by dedicated AuthRoutes
+	/*
 	auth := public.Group("/auth")
 	auth.Post("/register", controllers.Register)
 	auth.Post("/login", controllers.Login)
@@ -30,6 +30,7 @@ func PublicRoutes(app *fiber.App) *fiber.App {
 	auth.Post("/forgot-password", controllers.ForgotPassword)
 	auth.Post("/reset-password", controllers.ResetPassword)
 	auth.Post("/refresh-token", controllers.RefreshToken)
+	*/
 
 	// Public information routes
 	info := public.Group("/info")

@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
+	authDomain "github.com/JoseLuis21/mv-backend/internal/core/auth/domain"
 	"github.com/JoseLuis21/mv-backend/internal/core/auth/ports"
 	sharedErrors "github.com/JoseLuis21/mv-backend/internal/shared/errors"
 	"github.com/JoseLuis21/mv-backend/internal/shared/validatorapi"
@@ -13,41 +13,16 @@ import (
 
 // AuthController maneja las operaciones de autenticación
 type AuthController struct {
-	registerService ports.RegisterService
-	validator       *validatorapi.Validator
+	authService ports.AuthService
+	validator   *validatorapi.Validator
 }
 
 // NewAuthController crea una nueva instancia del controller de autenticación
-func NewAuthController(registerService ports.RegisterService, validator *validatorapi.Validator) *AuthController {
+func NewAuthController(authService ports.AuthService, validator *validatorapi.Validator) *AuthController {
 	return &AuthController{
-		registerService: registerService,
-		validator:       validator,
+		authService: authService,
+		validator:   validator,
 	}
-}
-
-// RegisterRequest estructura para la request de registro con validaciones chilenas
-type RegisterRequest struct {
-	Username             string                    `json:"username" validate:"required,min=3,max=50,alphanum"`
-	FullName             string                    `json:"full_name" validate:"required,min=2,max=200"`
-	Email                string                    `json:"email" validate:"required,chilean_email"`
-	Password             string                    `json:"password" validate:"required,min=8,max=255"`
-	Phone                string                    `json:"phone,omitempty" validate:"omitempty,chilean_phone"`
-	IdentificationNumber string                    `json:"identification_number,omitempty" validate:"omitempty,chilean_rut"`
-	CreateTenant         bool                      `json:"create_tenant,omitempty"`
-	TenantData           *TenantRegistrationData   `json:"tenant_data,omitempty"`
-}
-
-// TenantRegistrationData estructura para datos del tenant con validaciones chilenas
-type TenantRegistrationData struct {
-	RUT          string    `json:"rut" validate:"required,chilean_rut"`
-	BusinessName string    `json:"business_name" validate:"required,min=2,max=150"`
-	Email        string    `json:"email" validate:"required,chilean_email"`
-	Phone        string    `json:"phone" validate:"required,chilean_phone"`
-	Address      string    `json:"address" validate:"required,min=5,max=200"`
-	Website      string    `json:"website" validate:"required,url,max=150"`
-	RegionID     string    `json:"region_id" validate:"required,len=2,alpha"`
-	CommuneID    string    `json:"commune_id" validate:"required,min=1,max=100"`
-	CountryID    uuid.UUID `json:"country_id" validate:"required,uuid"`
 }
 
 // APIResponse estructura estándar para respuestas de la API
@@ -64,10 +39,10 @@ type ValidationErrorResponse struct {
 	Message string `json:"message"`
 }
 
-// Register maneja el registro de usuarios
+// Register maneja el registro de usuarios siguiendo el patrón de referencia
 func (ac *AuthController) Register(c *fiber.Ctx) error {
-	// 1. Parsear request body
-	var req RegisterRequest
+	// 1. Parsear request body usando DTOs del dominio
+	var req authDomain.AuthRegisterDto
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(APIResponse{
 			Success: false,
@@ -93,47 +68,14 @@ func (ac *AuthController) Register(c *fiber.Ctx) error {
 		})
 	}
 
-	// 3. Convertir a estructura del dominio
-	registerReq := &ports.RegisterRequest{
-		Username:             req.Username,
-		FullName:             req.FullName,
-		Email:                req.Email,
-		Password:             req.Password,
-		Phone:                req.Phone,
-		IdentificationNumber: req.IdentificationNumber,
-		CreateTenant:         req.CreateTenant,
-	}
-
-	// 4. Convertir datos del tenant si están presentes
-	if req.TenantData != nil {
-		registerReq.TenantData = &ports.TenantRegistrationData{
-			RUT:          req.TenantData.RUT,
-			BusinessName: req.TenantData.BusinessName,
-			Email:        req.TenantData.Email,
-			Phone:        req.TenantData.Phone,
-			Address:      req.TenantData.Address,
-			Website:      req.TenantData.Website,
-			RegionID:     req.TenantData.RegionID,
-			CommuneID:    req.TenantData.CommuneID,
-			CountryID:    req.TenantData.CountryID,
-		}
-	}
-
-	// 5. Crear contexto con timeout
+	// 3. Crear contexto con timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// 6. Llamar al servicio apropiado
-	var response *ports.RegisterResponse
-	var err error
+	// 4. Llamar al servicio unificado siguiendo patrón de referencia
+	response, err := ac.authService.Register(ctx, &req)
 
-	if req.CreateTenant {
-		response, err = ac.registerService.RegisterUserWithTenant(ctx, registerReq)
-	} else {
-		response, err = ac.registerService.RegisterUser(ctx, registerReq)
-	}
-
-	// 7. Manejar errores del servicio con sistema de errores robusto
+	// 5. Manejar errores del servicio
 	if err != nil {
 		if appErr, ok := sharedErrors.IsAppError(err); ok {
 			return c.Status(appErr.HTTPCode).JSON(APIResponse{
@@ -154,15 +96,16 @@ func (ac *AuthController) Register(c *fiber.Ctx) error {
 		})
 	}
 
-	// 8. Respuesta exitosa
+	// 6. Respuesta exitosa siguiendo patrón de referencia con nuevos campos
 	responseData := fiber.Map{
-		"user_id":                     response.UserID,
+		"id":                          response.ID,
+		"firstname":                   response.FirstName,
+		"lastname":                    response.LastName,
+		"full_name":                   response.FullName, // Para backward compatibility
+		"email":                       response.Email,
+		"phone":                       response.Phone,
+		"email_token":                 response.EmailToken,
 		"requires_email_verification": response.RequiresEmailVerification,
-	}
-	
-	// Solo agregar tenant_id si existe
-	if response.TenantID != nil {
-		responseData["tenant_id"] = response.TenantID
 	}
 	
 	return c.Status(fiber.StatusCreated).JSON(APIResponse{
@@ -172,15 +115,10 @@ func (ac *AuthController) Register(c *fiber.Ctx) error {
 	})
 }
 
-// VerifyEmailRequest estructura para verificación de email
-type VerifyEmailRequest struct {
-	Token string `json:"token" validate:"required,min=1"`
-}
-
-// VerifyUserEmail verifica el email del usuario
+// VerifyUserEmail verifica el email del usuario siguiendo patrón de referencia
 func (ac *AuthController) VerifyUserEmail(c *fiber.Ctx) error {
-	// 1. Parsear request
-	var req VerifyEmailRequest
+	// 1. Parsear request usando DTO del dominio
+	var req authDomain.VerifyEmailDto
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(APIResponse{
 			Success: false,
@@ -203,7 +141,7 @@ func (ac *AuthController) VerifyUserEmail(c *fiber.Ctx) error {
 	defer cancel()
 
 	// 4. Verificar email
-	if err := ac.registerService.VerifyEmail(ctx, req.Token); err != nil {
+	if err := ac.authService.VerifyUserEmail(ctx, req.Token); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(APIResponse{
 			Success: false,
 			Message: "Error verificando email",
@@ -218,15 +156,10 @@ func (ac *AuthController) VerifyUserEmail(c *fiber.Ctx) error {
 	})
 }
 
-// ResendEmailRequest estructura para reenvío de email
-type ResendEmailRequest struct {
-	Email string `json:"email" validate:"required,email"`
-}
-
-// ResendEmailVerification reenvía el email de verificación
+// ResendEmailVerification reenvía el email de verificación siguiendo patrón de referencia
 func (ac *AuthController) ResendEmailVerification(c *fiber.Ctx) error {
-	// 1. Parsear request
-	var req ResendEmailRequest
+	// 1. Parsear request usando DTO del dominio
+	var req authDomain.ResendVerificationDto
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(APIResponse{
 			Success: false,
@@ -249,7 +182,7 @@ func (ac *AuthController) ResendEmailVerification(c *fiber.Ctx) error {
 	defer cancel()
 
 	// 4. Reenviar email
-	if err := ac.registerService.ResendEmailVerification(ctx, req.Email); err != nil {
+	if err := ac.authService.ResendEmailVerification(ctx, req.Email); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(APIResponse{
 			Success: false,
 			Message: "Error reenviando email",
@@ -264,6 +197,48 @@ func (ac *AuthController) ResendEmailVerification(c *fiber.Ctx) error {
 	})
 }
 
+// Login autentica un usuario
+func (ac *AuthController) Login(c *fiber.Ctx) error {
+	// 1. Parsear request
+	var req authDomain.AuthLoginDto
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(APIResponse{
+			Success: false,
+			Message: "Error parseando datos",
+			Error:   "Formato de datos inválido",
+		})
+	}
+
+	// 2. Validar estructura
+	if errors := ac.validator.ValidateStruct(req); len(errors) > 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(APIResponse{
+			Success: false,
+			Message: "Datos de entrada inválidos",
+		})
+	}
+
+	// 3. Crear contexto
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// 4. Autenticar usuario
+	response, err := ac.authService.Login(ctx, &req)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(APIResponse{
+			Success: false,
+			Message: "Credenciales inválidas",
+			Error:   err.Error(),
+		})
+	}
+
+	// 5. Respuesta exitosa
+	return c.JSON(APIResponse{
+		Success: true,
+		Message: "Autenticación exitosa",
+		Data:    response,
+	})
+}
+
 // HealthCheck endpoint de health check para el módulo de auth
 func (ac *AuthController) HealthCheck(c *fiber.Ctx) error {
 	return c.JSON(APIResponse{
@@ -274,5 +249,48 @@ func (ac *AuthController) HealthCheck(c *fiber.Ctx) error {
 			"module":    "authentication",
 			"version":   "1.0.0",
 		},
+	})
+}
+
+// PASO 5: RefreshToken renueva tokens de acceso usando refresh token
+func (ac *AuthController) RefreshToken(c *fiber.Ctx) error {
+	// 1. Parsear request usando DTO del dominio
+	var req authDomain.RefreshTokenDto
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(APIResponse{
+			Success: false,
+			Message: "Error parseando datos",
+			Error:   "Refresh token requerido",
+		})
+	}
+
+	// 2. Validar estructura
+	if errors := ac.validator.ValidateStruct(req); len(errors) > 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(APIResponse{
+			Success: false,
+			Message: "Refresh token inválido",
+			Error:   "Refresh token es requerido",
+		})
+	}
+
+	// 3. Crear contexto con timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// 4. Renovar tokens
+	response, err := ac.authService.RefreshAccessToken(ctx, req.RefreshToken)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(APIResponse{
+			Success: false,
+			Message: "Error renovando token",
+			Error:   err.Error(),
+		})
+	}
+
+	// 5. Respuesta exitosa
+	return c.JSON(APIResponse{
+		Success: true,
+		Message: "Tokens renovados exitosamente",
+		Data:    response,
 	})
 }

@@ -40,6 +40,12 @@ type UserRepository interface {
 	// GetUserTenants obtiene todos los tenants asociados a un usuario
 	GetUserTenants(ctx context.Context, userID uuid.UUID) ([]*domain.TenantUser, error)
 	
+	// GetTenantsByUser obtiene todos los tenant_users por userID
+	GetTenantsByUser(ctx context.Context, userID uuid.UUID) ([]*domain.TenantUser, error)
+	
+	// UserHasAccessToTenant verifica si un usuario tiene acceso a un tenant
+	UserHasAccessToTenant(ctx context.Context, userID, tenantID uuid.UUID) (bool, error)
+	
 	// AddUserToTenant asocia un usuario a un tenant
 	AddUserToTenant(ctx context.Context, tenantUser *domain.TenantUser) error
 	

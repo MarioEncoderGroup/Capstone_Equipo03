@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/JoseLuis21/mv-backend/internal/core/tenant/domain"
+	tenantDomain "github.com/JoseLuis21/mv-backend/internal/core/tenant/domain"
 	"github.com/JoseLuis21/mv-backend/internal/core/tenant/ports"
 	"github.com/JoseLuis21/mv-backend/internal/libraries/postgresql"
 	"github.com/google/uuid"
@@ -38,7 +38,7 @@ func (r *PostgreSQLTenantRepository) GetNextNodeNumber(ctx context.Context) (int
 }
 
 // Create crea un nuevo tenant en la base de datos control
-func (r *PostgreSQLTenantRepository) Create(ctx context.Context, tenant *domain.Tenant) error {
+func (r *PostgreSQLTenantRepository) Create(ctx context.Context, tenant *tenantDomain.Tenant) error {
 	query := `
 		INSERT INTO tenants (
 			id, rut, business_name, email, phone, address, website, logo,
@@ -50,7 +50,7 @@ func (r *PostgreSQLTenantRepository) Create(ctx context.Context, tenant *domain.
 
 	err := r.client.Exec(ctx, query,
 		tenant.ID,
-		tenant.RUT,
+		tenant.Rut,
 		tenant.BusinessName,
 		tenant.Email,
 		tenant.Phone,
@@ -77,7 +77,7 @@ func (r *PostgreSQLTenantRepository) Create(ctx context.Context, tenant *domain.
 }
 
 // GetByID obtiene un tenant por su ID
-func (r *PostgreSQLTenantRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Tenant, error) {
+func (r *PostgreSQLTenantRepository) GetByID(ctx context.Context, id uuid.UUID) (*tenantDomain.Tenant, error) {
 	query := `
 		SELECT id, rut, business_name, email, phone, address, website, logo,
 			   region_id, commune_id, country_id, status, node_number, tenant_name,
@@ -97,7 +97,7 @@ func (r *PostgreSQLTenantRepository) GetByID(ctx context.Context, id uuid.UUID) 
 }
 
 // GetByRUT obtiene un tenant por su RUT
-func (r *PostgreSQLTenantRepository) GetByRUT(ctx context.Context, rut string) (*domain.Tenant, error) {
+func (r *PostgreSQLTenantRepository) GetByRUT(ctx context.Context, rut string) (*tenantDomain.Tenant, error) {
 	query := `
 		SELECT id, rut, business_name, email, phone, address, website, logo,
 			   region_id, commune_id, country_id, status, node_number, tenant_name,
@@ -117,7 +117,7 @@ func (r *PostgreSQLTenantRepository) GetByRUT(ctx context.Context, rut string) (
 }
 
 // GetByBusinessName obtiene un tenant por su nombre de negocio
-func (r *PostgreSQLTenantRepository) GetByBusinessName(ctx context.Context, businessName string) (*domain.Tenant, error) {
+func (r *PostgreSQLTenantRepository) GetByBusinessName(ctx context.Context, businessName string) (*tenantDomain.Tenant, error) {
 	query := `
 		SELECT id, rut, business_name, email, phone, address, website, logo,
 			   region_id, commune_id, country_id, status, node_number, tenant_name,
@@ -137,7 +137,7 @@ func (r *PostgreSQLTenantRepository) GetByBusinessName(ctx context.Context, busi
 }
 
 // Update actualiza un tenant existente
-func (r *PostgreSQLTenantRepository) Update(ctx context.Context, tenant *domain.Tenant) error {
+func (r *PostgreSQLTenantRepository) Update(ctx context.Context, tenant *tenantDomain.Tenant) error {
 	query := `
 		UPDATE tenants SET
 			rut = $2, business_name = $3, email = $4, phone = $5, address = $6,
@@ -149,7 +149,7 @@ func (r *PostgreSQLTenantRepository) Update(ctx context.Context, tenant *domain.
 
 	err := r.client.Exec(ctx, query,
 		tenant.ID,
-		tenant.RUT,
+		tenant.Rut,
 		tenant.BusinessName,
 		tenant.Email,
 		tenant.Phone,
@@ -265,14 +265,14 @@ func (r *PostgreSQLTenantRepository) CreateTenantDatabase(ctx context.Context, t
 }
 
 // scanTenant escanea una fila de tenant desde la base de datos
-func (r *PostgreSQLTenantRepository) scanTenant(row pgx.Row) (*domain.Tenant, error) {
-	tenant := &domain.Tenant{}
+func (r *PostgreSQLTenantRepository) scanTenant(row pgx.Row) (*tenantDomain.Tenant, error) {
+	tenant := &tenantDomain.Tenant{}
 	var deletedAt sql.NullTime
 	var statusStr string
 
 	err := row.Scan(
 		&tenant.ID,
-		&tenant.RUT,
+		&tenant.Rut,
 		&tenant.BusinessName,
 		&tenant.Email,
 		&tenant.Phone,
@@ -296,8 +296,8 @@ func (r *PostgreSQLTenantRepository) scanTenant(row pgx.Row) (*domain.Tenant, er
 		return nil, err
 	}
 
-	// Convertir string a TenantStatus
-	tenant.Status = domain.TenantStatus(statusStr)
+	// Asignar status como string
+	tenant.Status = statusStr
 
 	if deletedAt.Valid {
 		tenant.DeletedAt = &deletedAt.Time

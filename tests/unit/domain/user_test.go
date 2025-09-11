@@ -8,20 +8,23 @@ import (
 )
 
 func TestNewUser(t *testing.T) {
-	username := "testuser"
-	fullName := "Test User"
+	firstName := "Test"
+	lastName := "User"
 	email := "test@example.cl"
+	phone := "+56912345678"
 	hashedPassword := "hashed_password_here"
 
-	user := domain.NewUser(username, fullName, email, hashedPassword)
+	user := domain.NewUser(firstName, lastName, email, phone, hashedPassword)
 
-	// Verificar campos básicos
-	if user.Username != username {
-		t.Errorf("Expected username %s, got %s", username, user.Username)
+	// Verificar que el username se generó automáticamente desde el email
+	expectedUsername := "test" // Debe extraer la parte antes del @
+	if user.Username != expectedUsername {
+		t.Errorf("Expected auto-generated username %s, got %s", expectedUsername, user.Username)
 	}
 	
-	if user.FullName != fullName {
-		t.Errorf("Expected full name %s, got %s", fullName, user.FullName)
+	expectedFullName := firstName + " " + lastName
+	if user.FullName != expectedFullName {
+		t.Errorf("Expected full name %s, got %s", expectedFullName, user.FullName)
 	}
 	
 	if user.Email != email {
@@ -58,7 +61,7 @@ func TestNewUser(t *testing.T) {
 }
 
 func TestUserEmailTokenValidation(t *testing.T) {
-	user := domain.NewUser("test", "Test User", "test@example.cl", "password")
+	user := domain.NewUser("Test", "User", "test@example.cl", "+56912345678", "password")
 	
 	token := "test_token_123"
 	duration := 1 * time.Hour
@@ -90,7 +93,7 @@ func TestUserEmailTokenValidation(t *testing.T) {
 }
 
 func TestUserActivation(t *testing.T) {
-	user := domain.NewUser("test", "Test User", "test@example.cl", "password")
+	user := domain.NewUser("Test", "User", "test@example.cl", "+56912345678", "password")
 	token := "test_token"
 	
 	// Establecer token de verificación
@@ -131,7 +134,7 @@ func TestUserActivation(t *testing.T) {
 }
 
 func TestSetEmailVerificationToken(t *testing.T) {
-	user := domain.NewUser("test", "Test User", "test@example.cl", "password")
+	user := domain.NewUser("Test", "User", "test@example.cl", "+56912345678", "password")
 	
 	token := "verification_token_123"
 	duration := 2 * time.Hour
@@ -162,5 +165,46 @@ func TestSetEmailVerificationToken(t *testing.T) {
 	// Verificar updated timestamp
 	if user.Updated.Before(beforeSet) || user.Updated.After(afterSet) {
 		t.Error("Updated timestamp should be set when setting email token")
+	}
+}
+
+// TestUsernameGeneration verifica que el username se genere correctamente desde el email
+func TestUsernameGeneration(t *testing.T) {
+	testCases := []struct {
+		email            string
+		expectedUsername string
+		description      string
+	}{
+		{
+			email:            "juan.perez@empresa.cl",
+			expectedUsername: "juanperez",
+			description:      "email con punto debe remover caracteres especiales",
+		},
+		{
+			email:            "test@example.com",
+			expectedUsername: "test",
+			description:      "email simple debe extraer parte antes del @",
+		},
+		{
+			email:            "user123@domain.org",
+			expectedUsername: "user123",
+			description:      "email con números debe mantener los números",
+		},
+		{
+			email:            "a@test.cl",
+			expectedUsername: "usera",
+			description:      "username corto debe agregar prefijo 'user'",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			user := domain.NewUser("Test", "User", tc.email, "+56912345678", "password123")
+			
+			if user.Username != tc.expectedUsername {
+				t.Errorf("Para email %s, esperaba username %s, obtuvo %s", 
+					tc.email, tc.expectedUsername, user.Username)
+			}
+		})
 	}
 }

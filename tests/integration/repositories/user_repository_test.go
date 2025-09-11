@@ -22,7 +22,7 @@ func TestUserRepository_Create(t *testing.T) {
 	ctx := context.Background()
 	
 	// Test data
-	user := domain.NewUser("testuser", "Test User", "test@example.cl", "hashedpassword")
+	user := domain.NewUser("Juan", "Pérez", "test@example.cl", "+56987654321", "hashedpassword")
 	
 	// Execute
 	err := repo.Create(ctx, user)
@@ -57,7 +57,7 @@ func TestUserRepository_GetByEmail(t *testing.T) {
 	ctx := context.Background()
 	
 	// Create test user
-	user := domain.NewUser("testuser", "Test User", "test@example.cl", "hashedpassword")
+	user := domain.NewUser("Juan", "Pérez", "test@example.cl", "+56987654321", "hashedpassword")
 	err := repo.Create(ctx, user)
 	if err != nil {
 		t.Fatalf("Failed to create test user: %v", err)
@@ -101,7 +101,7 @@ func TestUserRepository_ExistsByEmail(t *testing.T) {
 	}
 	
 	// Create user
-	user := domain.NewUser("testuser", "Test User", email, "hashedpassword")
+	user := domain.NewUser("Juan", "Pérez", email, "+56987654321", "hashedpassword")
 	err = repo.Create(ctx, user)
 	if err != nil {
 		t.Fatalf("Failed to create user: %v", err)
@@ -127,7 +127,7 @@ func TestUserRepository_Update(t *testing.T) {
 	ctx := context.Background()
 	
 	// Create user
-	user := domain.NewUser("testuser", "Test User", "test@example.cl", "hashedpassword")
+	user := domain.NewUser("Juan", "Pérez", "test@example.cl", "+56987654321", "hashedpassword")
 	err := repo.Create(ctx, user)
 	if err != nil {
 		t.Fatalf("Failed to create user: %v", err)
@@ -172,7 +172,7 @@ func TestUserRepository_EmailTokenOperations(t *testing.T) {
 	ctx := context.Background()
 	
 	// Create user with email token
-	user := domain.NewUser("testuser", "Test User", "test@example.cl", "hashedpassword")
+	user := domain.NewUser("Juan", "Pérez", "test@example.cl", "+56987654321", "hashedpassword")
 	token := "verification_token_123"
 	expiry := time.Now().Add(24 * time.Hour)
 	user.EmailToken = &token
@@ -214,7 +214,7 @@ func TestUserRepository_SoftDelete(t *testing.T) {
 	ctx := context.Background()
 	
 	// Create user
-	user := domain.NewUser("testuser", "Test User", "test@example.cl", "hashedpassword")
+	user := domain.NewUser("Juan", "Pérez", "test@example.cl", "+56987654321", "hashedpassword")
 	err := repo.Create(ctx, user)
 	if err != nil {
 		t.Fatalf("Failed to create user: %v", err)
@@ -252,7 +252,7 @@ func TestUserRepository_TenantOperations(t *testing.T) {
 	ctx := context.Background()
 	
 	// Create user
-	user := domain.NewUser("testuser", "Test User", "test@example.cl", "hashedpassword")
+	user := domain.NewUser("Juan", "Pérez", "test@example.cl", "+56987654321", "hashedpassword")
 	err := repo.Create(ctx, user)
 	if err != nil {
 		t.Fatalf("Failed to create user: %v", err)
@@ -314,9 +314,10 @@ func BenchmarkUserRepository_Create(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		user := domain.NewUser(
-			fmt.Sprintf("user%d", i),
-			"Test User",
+			"Juan",
+			"Pérez",
 			fmt.Sprintf("test%d@example.cl", i),
+			"+56987654321",
 			"hashedpassword",
 		)
 		repo.Create(ctx, user)
@@ -336,7 +337,7 @@ func BenchmarkUserRepository_GetByEmail(b *testing.B) {
 	ctx := context.Background()
 	
 	// Create test user
-	user := domain.NewUser("testuser", "Test User", "test@example.cl", "hashedpassword")
+	user := domain.NewUser("Juan", "Pérez", "test@example.cl", "+56987654321", "hashedpassword")
 	repo.Create(ctx, user)
 	
 	b.ResetTimer()

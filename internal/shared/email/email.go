@@ -1,4 +1,4 @@
-package services
+package email
 
 import (
 	"context"
@@ -7,20 +7,25 @@ import (
 	"net/smtp"
 	"strings"
 
-	"github.com/JoseLuis21/mv-backend/internal/core/auth/ports"
-	"github.com/JoseLuis21/mv-backend/internal/core/user/domain"
 	"github.com/JoseLuis21/mv-backend/internal/shared/config"
 	"github.com/JoseLuis21/mv-backend/internal/shared/errors"
 )
 
-// EmailServiceImpl implementa el servicio de envío de emails
+// Service interface genérica para envío de emails
+// Puede ser utilizada por cualquier dominio en el sistema
+type Service interface {
+	SendEmail(ctx context.Context, message *Message) error
+	SendTemplateEmail(ctx context.Context, template EmailTemplate, data interface{}) error
+}
+
+// ServiceImpl implementa el servicio genérico de envío de emails
 // Soporta múltiples proveedores: SMTP, AWS SES, SendGrid
-type EmailServiceImpl struct {
+type ServiceImpl struct {
 	config *config.EmailConfig
 }
 
-// NewEmailService crea una nueva instancia del servicio de email
-func NewEmailService() ports.EmailService {
+// NewService crea una nueva instancia del servicio genérico de email
+func NewService() Service {
 	emailConfig := config.NewEmailConfig()
 
 	// Validar configuración al inicializar
@@ -28,13 +33,13 @@ func NewEmailService() ports.EmailService {
 		log.Printf("⚠️  Email habilitado pero configuración incompleta para proveedor: %s", emailConfig.Provider)
 	}
 
-	return &EmailServiceImpl{
+	return &ServiceImpl{
 		config: emailConfig,
 	}
 }
 
-// EmailMessage representa un mensaje de email a enviar
-type EmailMessage struct {
+// Message representa un mensaje de email genérico
+type Message struct {
 	To      []string `json:"to"`
 	CC      []string `json:"cc,omitempty"`
 	BCC     []string `json:"bcc,omitempty"`
@@ -43,22 +48,75 @@ type EmailMessage struct {
 	IsHTML  bool     `json:"is_html"`
 }
 
-// sendEmail envía un email usando el proveedor configurado
-func (es *EmailServiceImpl) sendEmail(ctx context.Context, email *EmailMessage) error {
+// EmailTemplate define los tipos de templates disponibles
+type EmailTemplate int
+
+const (
+	TemplateEmailVerification EmailTemplate = iota
+	TemplatePasswordReset
+	TemplateWelcome
+	TemplateGeneric
+)
+
+// TemplateData estructura base para datos de templates
+type TemplateData struct {
+	FullName string
+	Email    string
+	URL      string
+	Message  string
+}
+
+// SendEmail envía un email genérico usando el proveedor configurado
+func (es *ServiceImpl) SendEmail(ctx context.Context, message *Message) error {
 	switch es.config.Provider {
 	case "smtp":
-		return es.sendViaSMTP(ctx, email)
+		return es.sendViaSMTP(ctx, message)
 	case "ses":
-		return es.sendViaAWSSES(ctx, email)
+		return es.sendViaAWSSES(ctx, message)
 	case "sendgrid":
-		return es.sendViaSendGrid(ctx, email)
+		return es.sendViaSendGrid(ctx, message)
 	default:
 		return errors.NewInternalError("proveedor de email no soportado", es.config.Provider)
 	}
 }
 
+// SendTemplateEmail envía un email usando un template predefinido
+func (es *ServiceImpl) SendTemplateEmail(ctx context.Context, template EmailTemplate, data interface{}) error {
+	templateData, ok := data.(*TemplateData)
+	if !ok {
+		return errors.NewValidationError("datos de template inválidos", "template_data")
+	}
+
+	var message *Message
+	var err error
+
+	switch template {
+	case TemplateEmailVerification:
+		message, err = es.buildEmailVerificationMessage(templateData)
+	case TemplatePasswordReset:
+		message, err = es.buildPasswordResetMessage(templateData)
+	case TemplateWelcome:
+		message, err = es.buildWelcomeMessage(templateData)
+	case TemplateGeneric:
+		message, err = es.buildGenericMessage(templateData)
+	default:
+		return errors.NewValidationError("template de email no soportado", "template")
+	}
+
+	if err != nil {
+		return err
+	}
+
+	// Si message es nil (email deshabilitado), no hacer nada
+	if message == nil {
+		return nil
+	}
+
+	return es.SendEmail(ctx, message)
+}
+
 // sendViaSMTP envía email via SMTP
-func (es *EmailServiceImpl) sendViaSMTP(ctx context.Context, email *EmailMessage) error {
+func (es *ServiceImpl) sendViaSMTP(ctx context.Context, message *Message) error {
 	if !es.config.HasSMTPConfig() {
 		return errors.NewInternalError("configuración SMTP incompleta", "")
 	}
@@ -66,134 +124,151 @@ func (es *EmailServiceImpl) sendViaSMTP(ctx context.Context, email *EmailMessage
 	// Configurar autenticación
 	auth := smtp.PlainAuth("", es.config.SMTPUsername, es.config.SMTPPassword, es.config.SMTPHost)
 
-	// Construir mensaje
-	message := es.buildMIMEMessage(email)
+	// Construir mensaje MIME
+	mimeMessage := es.buildMIMEMessage(message)
 
 	// Servidor SMTP
 	smtpServer := fmt.Sprintf("%s:%d", es.config.SMTPHost, es.config.SMTPPort)
 
 	// Enviar email
-	err := smtp.SendMail(smtpServer, auth, es.config.FromEmail, email.To, []byte(message))
+	err := smtp.SendMail(smtpServer, auth, es.config.FromEmail, message.To, []byte(mimeMessage))
 	if err != nil {
 		return errors.WrapError(errors.ErrEmailService, fmt.Sprintf("error SMTP: %v", err))
 	}
 
-	log.Printf("📧 Email enviado via SMTP a: %s", strings.Join(email.To, ", "))
+	log.Printf("📧 Email enviado via SMTP a: %s", strings.Join(message.To, ", "))
 	return nil
 }
 
 // sendViaAWSSES envía email via AWS SES
-func (es *EmailServiceImpl) sendViaAWSSES(ctx context.Context, email *EmailMessage) error {
+func (es *ServiceImpl) sendViaAWSSES(ctx context.Context, message *Message) error {
 	// TODO: Implementar AWS SES
 	// Por ahora simular el envío
-	log.Printf("📧 [SES SIMULADO] Email enviado a: %s", strings.Join(email.To, ", "))
+	if !es.config.Enabled {
+		log.Printf("📧 [SES SIMULADO] Email enviado a: %s", strings.Join(message.To, ", "))
+		return nil
+	}
+	
+	log.Printf("📧 [SES SIMULADO] Email enviado a: %s", strings.Join(message.To, ", "))
 	return nil
 }
 
 // sendViaSendGrid envía email via SendGrid
-func (es *EmailServiceImpl) sendViaSendGrid(ctx context.Context, email *EmailMessage) error {
+func (es *ServiceImpl) sendViaSendGrid(ctx context.Context, message *Message) error {
 	// TODO: Implementar SendGrid
 	// Por ahora simular el envío
-	log.Printf("📧 [SENDGRID SIMULADO] Email enviado a: %s", strings.Join(email.To, ", "))
+	if !es.config.Enabled {
+		log.Printf("📧 [SENDGRID SIMULADO] Email enviado a: %s", strings.Join(message.To, ", "))
+		return nil
+	}
+	
+	log.Printf("📧 [SENDGRID SIMULADO] Email enviado a: %s", strings.Join(message.To, ", "))
 	return nil
 }
 
 // buildMIMEMessage construye un mensaje MIME para SMTP
-func (es *EmailServiceImpl) buildMIMEMessage(email *EmailMessage) string {
-	var message strings.Builder
+func (es *ServiceImpl) buildMIMEMessage(message *Message) string {
+	var mimeMessage strings.Builder
 
 	// Headers
-	message.WriteString(fmt.Sprintf("From: %s <%s>\r\n", es.config.FromName, es.config.FromEmail))
-	message.WriteString(fmt.Sprintf("To: %s\r\n", strings.Join(email.To, ", ")))
-	message.WriteString(fmt.Sprintf("Subject: %s\r\n", email.Subject))
+	mimeMessage.WriteString(fmt.Sprintf("From: %s <%s>\r\n", es.config.FromName, es.config.FromEmail))
+	mimeMessage.WriteString(fmt.Sprintf("To: %s\r\n", strings.Join(message.To, ", ")))
+	mimeMessage.WriteString(fmt.Sprintf("Subject: %s\r\n", message.Subject))
 
-	if email.IsHTML {
-		message.WriteString("MIME-Version: 1.0\r\n")
-		message.WriteString("Content-Type: text/html; charset=UTF-8\r\n")
+	if message.IsHTML {
+		mimeMessage.WriteString("MIME-Version: 1.0\r\n")
+		mimeMessage.WriteString("Content-Type: text/html; charset=UTF-8\r\n")
 	} else {
-		message.WriteString("Content-Type: text/plain; charset=UTF-8\r\n")
+		mimeMessage.WriteString("Content-Type: text/plain; charset=UTF-8\r\n")
 	}
 
-	message.WriteString("\r\n")
-	message.WriteString(email.Body)
+	mimeMessage.WriteString("\r\n")
+	mimeMessage.WriteString(message.Body)
 
-	return message.String()
+	return mimeMessage.String()
 }
 
-// SendEmailVerification envía un email de verificación al usuario
-func (es *EmailServiceImpl) SendEmailVerification(ctx context.Context, user *domain.User, token string) error {
+// buildEmailVerificationMessage construye mensaje para verificación de email
+func (es *ServiceImpl) buildEmailVerificationMessage(data *TemplateData) (*Message, error) {
 	if !es.config.Enabled {
 		// Simular envío en desarrollo
-		verificationURL := fmt.Sprintf("%s/verify-email?token=%s", es.config.FrontendURL, token)
-		fmt.Printf("📧 [SIMULADO] Email de verificación enviado a: %s\n", user.Email)
-		fmt.Printf("🔗 Link de verificación: %s\n", verificationURL)
-		return nil
+		fmt.Printf("📧 [SIMULADO] Email de verificación enviado a: %s\n", data.Email)
+		fmt.Printf("🔗 Link de verificación: %s\n", data.URL)
+		return nil, nil
 	}
 
 	if !es.config.CanSendEmails() {
-		return errors.WrapError(errors.ErrEmailService, "configuración de email incompleta")
+		return nil, errors.WrapError(errors.ErrEmailService, "configuración de email incompleta")
 	}
 
-	verificationURL := fmt.Sprintf("%s/verify-email?token=%s", es.config.FrontendURL, token)
-
-	email := &EmailMessage{
-		To:      []string{user.Email},
+	return &Message{
+		To:      []string{data.Email},
 		Subject: "Verifica tu cuenta en MisViáticos",
-		Body:    es.buildEmailVerificationHTML(user.FullName, verificationURL),
+		Body:    es.buildEmailVerificationHTML(data.FullName, data.URL),
 		IsHTML:  true,
-	}
-
-	return es.sendEmail(ctx, email)
+	}, nil
 }
 
-// SendPasswordReset envía un email para reset de contraseña
-func (es *EmailServiceImpl) SendPasswordReset(ctx context.Context, user *domain.User, token string) error {
+// buildPasswordResetMessage construye mensaje para reset de contraseña
+func (es *ServiceImpl) buildPasswordResetMessage(data *TemplateData) (*Message, error) {
 	if !es.config.Enabled {
-		resetURL := fmt.Sprintf("%s/reset-password?token=%s", es.config.FrontendURL, token)
-		fmt.Printf("📧 [SIMULADO] Email de reset enviado a: %s\n", user.Email)
-		fmt.Printf("🔗 Link de reset: %s\n", resetURL)
-		return nil
+		fmt.Printf("📧 [SIMULADO] Email de reset enviado a: %s\n", data.Email)
+		fmt.Printf("🔗 Link de reset: %s\n", data.URL)
+		return nil, nil
 	}
 
 	if !es.config.CanSendEmails() {
-		return errors.WrapError(errors.ErrEmailService, "configuración de email incompleta")
+		return nil, errors.WrapError(errors.ErrEmailService, "configuración de email incompleta")
 	}
 
-	resetURL := fmt.Sprintf("%s/reset-password?token=%s", es.config.FrontendURL, token)
-
-	email := &EmailMessage{
-		To:      []string{user.Email},
+	return &Message{
+		To:      []string{data.Email},
 		Subject: "Recupera tu contraseña - MisViáticos",
-		Body:    es.buildPasswordResetHTML(user.FullName, resetURL),
+		Body:    es.buildPasswordResetHTML(data.FullName, data.URL),
 		IsHTML:  true,
-	}
-
-	return es.sendEmail(ctx, email)
+	}, nil
 }
 
-// SendWelcomeEmail envía email de bienvenida después del registro
-func (es *EmailServiceImpl) SendWelcomeEmail(ctx context.Context, user *domain.User) error {
+// buildWelcomeMessage construye mensaje de bienvenida
+func (es *ServiceImpl) buildWelcomeMessage(data *TemplateData) (*Message, error) {
 	if !es.config.Enabled {
-		fmt.Printf("📧 [SIMULADO] Email de bienvenida enviado a: %s\n", user.Email)
-		return nil
+		fmt.Printf("📧 [SIMULADO] Email de bienvenida enviado a: %s\n", data.Email)
+		return nil, nil
 	}
 
 	if !es.config.CanSendEmails() {
-		return errors.WrapError(errors.ErrEmailService, "configuración de email incompleta")
+		return nil, errors.WrapError(errors.ErrEmailService, "configuración de email incompleta")
 	}
 
-	email := &EmailMessage{
-		To:      []string{user.Email},
+	return &Message{
+		To:      []string{data.Email},
 		Subject: "¡Bienvenido a MisViáticos!",
-		Body:    es.buildWelcomeEmailHTML(user.FullName),
+		Body:    es.buildWelcomeEmailHTML(data.FullName),
 		IsHTML:  true,
+	}, nil
+}
+
+// buildGenericMessage construye mensaje genérico
+func (es *ServiceImpl) buildGenericMessage(data *TemplateData) (*Message, error) {
+	if !es.config.Enabled {
+		fmt.Printf("📧 [SIMULADO] Email genérico enviado a: %s\n", data.Email)
+		return nil, nil
 	}
 
-	return es.sendEmail(ctx, email)
+	if !es.config.CanSendEmails() {
+		return nil, errors.WrapError(errors.ErrEmailService, "configuración de email incompleta")
+	}
+
+	return &Message{
+		To:      []string{data.Email},
+		Subject: "Notificación - MisViáticos",
+		Body:    data.Message,
+		IsHTML:  false,
+	}, nil
 }
 
 // buildEmailVerificationHTML construye el HTML para email de verificación
-func (es *EmailServiceImpl) buildEmailVerificationHTML(fullName, verificationURL string) string {
+func (es *ServiceImpl) buildEmailVerificationHTML(fullName, verificationURL string) string {
 	return fmt.Sprintf(`
 <!DOCTYPE html>
 <html>
@@ -231,7 +306,7 @@ func (es *EmailServiceImpl) buildEmailVerificationHTML(fullName, verificationURL
 }
 
 // buildPasswordResetHTML construye el HTML para email de reset
-func (es *EmailServiceImpl) buildPasswordResetHTML(fullName, resetURL string) string {
+func (es *ServiceImpl) buildPasswordResetHTML(fullName, resetURL string) string {
 	return fmt.Sprintf(`
 <!DOCTYPE html>
 <html>
@@ -271,7 +346,7 @@ func (es *EmailServiceImpl) buildPasswordResetHTML(fullName, resetURL string) st
 }
 
 // buildWelcomeEmailHTML construye el HTML para email de bienvenida
-func (es *EmailServiceImpl) buildWelcomeEmailHTML(fullName string) string {
+func (es *ServiceImpl) buildWelcomeEmailHTML(fullName string) string {
 	return fmt.Sprintf(`
 <!DOCTYPE html>
 <html>

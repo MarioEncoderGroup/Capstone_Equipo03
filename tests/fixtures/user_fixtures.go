@@ -18,12 +18,15 @@ func NewUserFixtures() *UserFixtures {
 
 // ValidUser returns a valid user for testing
 func (f *UserFixtures) ValidUser() *domain.User {
-	return domain.NewUser(
-		"testuser",
-		"Usuario de Prueba",
+	user := domain.NewUser(
+		"Usuario",
+		"de Prueba",
 		"test@example.cl",
+		"+56912345678",
 		"$2a$12$hashed.password.example",
 	)
+	user.Username = "testuser"
+	return user
 }
 
 // UserWithEmailToken returns a user with email verification token
@@ -105,12 +108,15 @@ func (f *UserFixtures) UserWithInvalidRUT() *domain.User {
 func (f *UserFixtures) UsersForBulkTesting(count int) []*domain.User {
 	users := make([]*domain.User, count)
 	for i := 0; i < count; i++ {
-		users[i] = domain.NewUser(
-			fmt.Sprintf("testuser%d", i),
-			fmt.Sprintf("Usuario de Prueba %d", i),
+		user := domain.NewUser(
+			fmt.Sprintf("Usuario %d", i),
+			fmt.Sprintf("de Prueba %d", i),
 			fmt.Sprintf("test%d@example.cl", i),
+			fmt.Sprintf("+5691234567%d", i),
 			"$2a$12$hashed.password.example",
 		)
+		user.Username = fmt.Sprintf("testuser%d", i)
+		users[i] = user
 	}
 	return users
 }
@@ -118,23 +124,23 @@ func (f *UserFixtures) UsersForBulkTesting(count int) []*domain.User {
 // ValidRegisterRequestData returns request data for registration testing
 func (f *UserFixtures) ValidRegisterRequestData() map[string]interface{} {
 	return map[string]interface{}{
-		"username":               "testuser",
-		"full_name":              "Usuario de Prueba",
+		"firstname":              "Usuario",
+		"lastname":               "de Prueba",
 		"email":                  "test@example.cl",
-		"password":               "password123",
 		"phone":                  "+56912345678",
-		"identification_number":  "12.345.678-5",
+		"password":               "password123",
+		"password_confirm":       "password123",
 	}
 }
 
 // InvalidRegisterRequestData returns invalid request data for testing
 func (f *UserFixtures) InvalidRegisterRequestData() map[string]interface{} {
 	return map[string]interface{}{
-		"username":               "tu", // Too short
-		"full_name":              "",   // Empty
+		"firstname":              "X", // Too short
+		"lastname":               "",  // Empty
 		"email":                  "invalid-email",
-		"password":               "123", // Too weak
 		"phone":                  "invalid-phone",
-		"identification_number":  "12.345.678-X", // Invalid RUT
+		"password":               "123", // Too weak
+		"password_confirm":       "456", // No match
 	}
 }

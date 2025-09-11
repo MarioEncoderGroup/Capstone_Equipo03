@@ -171,38 +171,13 @@ func AssertErrorCode(t *testing.T, apiResp *APIResponse, expectedErrorCode strin
 // CreateValidRegisterRequest crea una request de registro válida para testing
 func CreateValidRegisterRequest() map[string]interface{} {
 	return map[string]interface{}{
-		"username":              "testuser",
-		"full_name":             "Usuario de Prueba",
-		"email":                 "usuario@test.cl",
-		"password":              "password123",
-		"phone":                 "+56912345678",
-		"identification_number": "12.345.678-5",
+		"firstname":        "Usuario",
+		"lastname":         "de Prueba",
+		"email":            "usuario@test.cl",
+		"phone":            "+56912345678",
+		"password":         "password123",
+		"password_confirm": "password123",
 	}
-}
-
-// CreateValidTenantRegisterRequest crea una request de registro con tenant válida
-func CreateValidTenantRegisterRequest() map[string]interface{} {
-	baseReq := CreateValidRegisterRequest()
-	baseReq["create_tenant"] = true
-	baseReq["tenant_data"] = map[string]interface{}{
-		"rut":           "76.123.456-0",
-		"business_name": "Empresa de Prueba SpA",
-		"email":         "contacto@empresa.cl",
-		"phone":         "+56987654321",
-		"address":       "Av. Providencia 123, Santiago",
-		"website":       "https://empresa.cl",
-		"region_id":     "RM",
-		"commune_id":    "Santiago",
-		"country_id":    "01234567-89ab-cdef-0123-456789abcdef",
-	}
-	return baseReq
-}
-
-// CreateInvalidRUTRequest crea una request con RUT inválido
-func CreateInvalidRUTRequest() map[string]interface{} {
-	req := CreateValidRegisterRequest()
-	req["identification_number"] = "12.345.678-X" // RUT inválido
-	return req
 }
 
 // WaitForCondition espera hasta que una condición se cumpla (útil para async operations)
