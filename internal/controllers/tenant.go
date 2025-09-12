@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"context"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -9,6 +8,7 @@ import (
 	tenantDomain "github.com/JoseLuis21/mv-backend/internal/core/tenant/domain"
 	"github.com/JoseLuis21/mv-backend/internal/core/tenant/ports"
 	sharedErrors "github.com/JoseLuis21/mv-backend/internal/shared/errors"
+	"github.com/JoseLuis21/mv-backend/internal/shared/types"
 	"github.com/JoseLuis21/mv-backend/internal/shared/validatorapi"
 	"github.com/google/uuid"
 )
@@ -29,28 +29,24 @@ func NewTenantController(tenantService ports.TenantService, authService authPort
 	}
 }
 
-// APIResponse se define en auth.go para evitar duplicación
 
 // GetTenantsByUser obtiene todos los tenants del usuario autenticado
 func (tc *TenantController) GetTenantsByUser(c *fiber.Ctx) error {
 	// 1. Obtener userID del contexto (middleware de autenticación)
 	userID, err := getUserIDFromContext(c)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(APIResponse{
+		return c.Status(fiber.StatusUnauthorized).JSON(types.APIResponse{
 			Success: false,
 			Message: "Usuario no autenticado",
 			Error:   "UNAUTHORIZED",
 		})
 	}
 
-	// 2. Crear contexto
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
+	// 2. Usar contexto de Fiber
 	// 3. Obtener tenants del usuario
-	tenants, err := tc.tenantService.GetTenantsByUser(ctx, userID)
+	tenants, err := tc.tenantService.GetTenantsByUser(c.Context(), userID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(APIResponse{
+		return c.Status(fiber.StatusInternalServerError).JSON(types.APIResponse{
 			Success: false,
 			Message: "Error obteniendo tenants",
 			Error:   err.Error(),
@@ -58,7 +54,7 @@ func (tc *TenantController) GetTenantsByUser(c *fiber.Ctx) error {
 	}
 
 	// 4. Respuesta exitosa
-	return c.JSON(APIResponse{
+	return c.JSON(types.APIResponse{
 		Success: true,
 		Message: "Tenants obtenidos exitosamente",
 		Data:    tenants,
@@ -70,7 +66,7 @@ func (tc *TenantController) SelectTenant(c *fiber.Ctx) error {
 	// 1. Obtener userID del contexto
 	userID, err := getUserIDFromContext(c)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(APIResponse{
+		return c.Status(fiber.StatusUnauthorized).JSON(types.APIResponse{
 			Success: false,
 			Message: "Usuario no autenticado",
 			Error:   "UNAUTHORIZED",
@@ -80,7 +76,7 @@ func (tc *TenantController) SelectTenant(c *fiber.Ctx) error {
 	// 2. Obtener tenantID de los parámetros
 	tenantIDStr := c.Params("tenantId")
 	if tenantIDStr == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(APIResponse{
+		return c.Status(fiber.StatusBadRequest).JSON(types.APIResponse{
 			Success: false,
 			Message: "ID del tenant requerido",
 			Error:   "TENANT_ID_REQUIRED",
@@ -89,21 +85,18 @@ func (tc *TenantController) SelectTenant(c *fiber.Ctx) error {
 
 	tenantID, err := uuid.Parse(tenantIDStr)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(APIResponse{
+		return c.Status(fiber.StatusBadRequest).JSON(types.APIResponse{
 			Success: false,
 			Message: "ID del tenant inválido",
 			Error:   "INVALID_TENANT_ID",
 		})
 	}
 
-	// 3. Crear contexto
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
+	// 3. Usar contexto de Fiber
 	// 4. Obtener información del tenant desde TenantService
-	tenant, err := tc.tenantService.GetTenantProfile(ctx, tenantID)
+	tenant, err := tc.tenantService.GetTenantProfile(c.Context(), tenantID)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(APIResponse{
+		return c.Status(fiber.StatusNotFound).JSON(types.APIResponse{
 			Success: false,
 			Message: "Tenant no encontrado",
 			Error:   err.Error(),
@@ -111,17 +104,17 @@ func (tc *TenantController) SelectTenant(c *fiber.Ctx) error {
 	}
 
 	// 5. Seleccionar tenant usando AuthService (genera nuevos tokens con tenant_id)
-	response, err := tc.authService.SelectTenant(ctx, tenant, userID)
+	response, err := tc.authService.SelectTenant(c.Context(), tenant, userID)
 	if err != nil {
 		if appErr, ok := sharedErrors.IsAppError(err); ok {
-			return c.Status(appErr.HTTPCode).JSON(APIResponse{
+			return c.Status(appErr.HTTPCode).JSON(types.APIResponse{
 				Success: false,
 				Message: appErr.Message,
 				Error:   appErr.Code,
 			})
 		}
 		
-		return c.Status(fiber.StatusBadRequest).JSON(APIResponse{
+		return c.Status(fiber.StatusBadRequest).JSON(types.APIResponse{
 			Success: false,
 			Message: "Error seleccionando tenant",
 			Error:   err.Error(),
@@ -129,7 +122,7 @@ func (tc *TenantController) SelectTenant(c *fiber.Ctx) error {
 	}
 
 	// 6. Respuesta exitosa
-	return c.JSON(APIResponse{
+	return c.JSON(types.APIResponse{
 		Success: true,
 		Message: "Tenant seleccionado exitosamente",
 		Data:    response,
@@ -141,7 +134,7 @@ func (tc *TenantController) GetTenantProfile(c *fiber.Ctx) error {
 	// 1. Obtener tenantID de los parámetros
 	tenantIDStr := c.Params("tenantId")
 	if tenantIDStr == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(APIResponse{
+		return c.Status(fiber.StatusBadRequest).JSON(types.APIResponse{
 			Success: false,
 			Message: "ID del tenant requerido",
 			Error:   "TENANT_ID_REQUIRED",
@@ -150,21 +143,18 @@ func (tc *TenantController) GetTenantProfile(c *fiber.Ctx) error {
 
 	tenantID, err := uuid.Parse(tenantIDStr)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(APIResponse{
+		return c.Status(fiber.StatusBadRequest).JSON(types.APIResponse{
 			Success: false,
 			Message: "ID del tenant inválido",
 			Error:   "INVALID_TENANT_ID",
 		})
 	}
 
-	// 2. Crear contexto
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
+	// 2. Usar contexto de Fiber
 	// 3. Obtener perfil del tenant
-	tenant, err := tc.tenantService.GetTenantProfile(ctx, tenantID)
+	tenant, err := tc.tenantService.GetTenantProfile(c.Context(), tenantID)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(APIResponse{
+		return c.Status(fiber.StatusNotFound).JSON(types.APIResponse{
 			Success: false,
 			Message: "Tenant no encontrado",
 			Error:   err.Error(),
@@ -172,7 +162,7 @@ func (tc *TenantController) GetTenantProfile(c *fiber.Ctx) error {
 	}
 
 	// 4. Respuesta exitosa
-	return c.JSON(APIResponse{
+	return c.JSON(types.APIResponse{
 		Success: true,
 		Message: "Perfil del tenant obtenido exitosamente",
 		Data:    tenant,
@@ -184,7 +174,7 @@ func (tc *TenantController) UpdateTenantProfile(c *fiber.Ctx) error {
 	// 1. Obtener tenantID de los parámetros
 	tenantIDStr := c.Params("tenantId")
 	if tenantIDStr == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(APIResponse{
+		return c.Status(fiber.StatusBadRequest).JSON(types.APIResponse{
 			Success: false,
 			Message: "ID del tenant requerido",
 			Error:   "TENANT_ID_REQUIRED",
@@ -193,7 +183,7 @@ func (tc *TenantController) UpdateTenantProfile(c *fiber.Ctx) error {
 
 	tenantID, err := uuid.Parse(tenantIDStr)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(APIResponse{
+		return c.Status(fiber.StatusBadRequest).JSON(types.APIResponse{
 			Success: false,
 			Message: "ID del tenant inválido",
 			Error:   "INVALID_TENANT_ID",
@@ -203,7 +193,7 @@ func (tc *TenantController) UpdateTenantProfile(c *fiber.Ctx) error {
 	// 2. Parsear datos de actualización
 	var updateData tenantDomain.Tenant
 	if err := c.BodyParser(&updateData); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(APIResponse{
+		return c.Status(fiber.StatusBadRequest).JSON(types.APIResponse{
 			Success: false,
 			Message: "Error parseando datos",
 			Error:   "Formato de datos inválido",
@@ -212,7 +202,7 @@ func (tc *TenantController) UpdateTenantProfile(c *fiber.Ctx) error {
 
 	// 3. Validar datos
 	if errors := tc.validator.ValidateStruct(updateData); len(errors) > 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(APIResponse{
+		return c.Status(fiber.StatusBadRequest).JSON(types.APIResponse{
 			Success: false,
 			Message: "Errores de validación",
 			Data:    errors,
@@ -222,13 +212,10 @@ func (tc *TenantController) UpdateTenantProfile(c *fiber.Ctx) error {
 	// 4. Asegurar que el ID coincida
 	updateData.ID = tenantID
 
-	// 5. Crear contexto
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-
+	// 5. Usar contexto de Fiber
 	// 6. Actualizar tenant
-	if err := tc.tenantService.UpdateTenant(ctx, &updateData); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(APIResponse{
+	if err := tc.tenantService.UpdateTenant(c.Context(), &updateData); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(types.APIResponse{
 			Success: false,
 			Message: "Error actualizando tenant",
 			Error:   err.Error(),
@@ -236,7 +223,7 @@ func (tc *TenantController) UpdateTenantProfile(c *fiber.Ctx) error {
 	}
 
 	// 7. Respuesta exitosa
-	return c.JSON(APIResponse{
+	return c.JSON(types.APIResponse{
 		Success: true,
 		Message: "Perfil del tenant actualizado exitosamente",
 	})
@@ -244,7 +231,7 @@ func (tc *TenantController) UpdateTenantProfile(c *fiber.Ctx) error {
 
 // HealthCheck endpoint de health check para el módulo de tenant
 func (tc *TenantController) HealthCheck(c *fiber.Ctx) error {
-	return c.JSON(APIResponse{
+	return c.JSON(types.APIResponse{
 		Success: true,
 		Message: "Tenant module is healthy",
 		Data: fiber.Map{

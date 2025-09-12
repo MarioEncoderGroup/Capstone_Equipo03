@@ -324,14 +324,14 @@ func TestTenantRepository_GetNextNodeNumber(t *testing.T) {
 		t.Fatalf("Failed to create tenant: %v", err)
 	}
 	
-	// Next node number should be 2
+	// Node number should always be 1 (fixed parameter)
 	nextNodeNumber, err := repo.GetNextNodeNumber(ctx)
 	if err != nil {
 		t.Fatalf("Failed to get next node number: %v", err)
 	}
 	
-	if nextNodeNumber != 2 {
-		t.Errorf("Expected next node number 2, got %d", nextNodeNumber)
+	if nextNodeNumber != 1 {
+		t.Errorf("Expected next node number 1 (fixed parameter), got %d", nextNodeNumber)
 	}
 }
 

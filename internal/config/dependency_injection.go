@@ -9,6 +9,7 @@ import (
 	"github.com/JoseLuis21/mv-backend/internal/core/tenant/adapters"
 	tenantServices "github.com/JoseLuis21/mv-backend/internal/core/tenant/services"
 	userAdapters "github.com/JoseLuis21/mv-backend/internal/core/user/adapters"
+	userServices "github.com/JoseLuis21/mv-backend/internal/core/user/services"
 	"github.com/JoseLuis21/mv-backend/internal/libraries/postgresql"
 	"github.com/JoseLuis21/mv-backend/internal/shared/validatorapi"
 	"github.com/gofiber/fiber/v2"
@@ -41,8 +42,10 @@ func NewDependencies(dbControl *postgresql.PostgresqlClient) (*Dependencies, err
 	emailService := email.NewService()
 
 	// 4. Crear servicios de dominio (core layer) siguiendo patrón de referencia
+	userService := userServices.NewUserService(userRepo)
+	
 	authService := services.NewAuthService(
-		userRepo,
+		userService,
 		passwordHasher,
 		tokenGenerator,
 		emailService,
@@ -50,7 +53,7 @@ func NewDependencies(dbControl *postgresql.PostgresqlClient) (*Dependencies, err
 	
 	tenantService := tenantServices.NewTenantService(
 		tenantRepo,
-		userRepo,
+		userService,
 	)
 
 	// 5. Crear controllers (adapter layer - entrada HTTP)

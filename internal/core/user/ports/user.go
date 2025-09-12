@@ -52,3 +52,35 @@ type UserRepository interface {
 	// RemoveUserFromTenant desasocia un usuario de un tenant (soft delete)
 	RemoveUserFromTenant(ctx context.Context, userID, tenantID uuid.UUID) error
 }
+
+// UserService define el contrato para el servicio de usuarios
+// Esta interfaz encapsula la lógica de negocio relacionada con usuarios
+// y sigue los principios de Clean Architecture
+type UserService interface {
+	// CreateUser crea un nuevo usuario
+	CreateUser(ctx context.Context, user *domain.User) error
+	
+	// GetUserByID obtiene un usuario por su ID
+	GetUserByID(ctx context.Context, id uuid.UUID) (*domain.User, error)
+	
+	// GetUserByEmail obtiene un usuario por su email
+	GetUserByEmail(ctx context.Context, email string) (*domain.User, error)
+	
+	// GetUserByEmailToken obtiene un usuario por su token de verificación de email
+	GetUserByEmailToken(ctx context.Context, token string) (*domain.User, error)
+	
+	// UpdateUser actualiza un usuario existente
+	UpdateUser(ctx context.Context, user *domain.User) error
+	
+	// ExistsByEmail verifica si existe un usuario con el email dado
+	ExistsByEmail(ctx context.Context, email string) (bool, error)
+	
+	// GetTenantsByUser obtiene todos los tenant_users por userID
+	GetTenantsByUser(ctx context.Context, userID uuid.UUID) ([]*domain.TenantUser, error)
+	
+	// UserHasAccessToTenant verifica si un usuario tiene acceso a un tenant
+	UserHasAccessToTenant(ctx context.Context, userID, tenantID uuid.UUID) (bool, error)
+	
+	// AddUserToTenant asocia un usuario a un tenant
+	AddUserToTenant(ctx context.Context, tenantUser *domain.TenantUser) error
+}

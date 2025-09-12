@@ -11,6 +11,7 @@ import (
 
 	"github.com/JoseLuis21/mv-backend/internal/config"
 	"github.com/JoseLuis21/mv-backend/internal/routes"
+	"github.com/JoseLuis21/mv-backend/internal/shared/types"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 )
@@ -22,13 +23,6 @@ type TestServer struct {
 	BaseURL    string
 }
 
-// APIResponse representa una respuesta estándar de la API
-type APIResponse struct {
-	Success bool        `json:"success"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-	Error   string      `json:"error,omitempty"`
-}
 
 // CreateTestServer crea un servidor de testing con todas las dependencias
 func CreateTestServer(t *testing.T) (*TestServer, func()) {
@@ -110,7 +104,7 @@ func (s *TestServer) MakeRequest(t *testing.T, method, path string, body interfa
 }
 
 // ParseJSONResponse parsea una respuesta JSON
-func ParseJSONResponse(t *testing.T, resp *http.Response) *APIResponse {
+func ParseJSONResponse(t *testing.T, resp *http.Response) *types.APIResponse {
 	t.Helper()
 
 	defer resp.Body.Close()
@@ -119,7 +113,7 @@ func ParseJSONResponse(t *testing.T, resp *http.Response) *APIResponse {
 		t.Fatalf("Failed to read response body: %v", err)
 	}
 
-	var apiResp APIResponse
+	var apiResp types.APIResponse
 	if err := json.Unmarshal(body, &apiResp); err != nil {
 		t.Fatalf("Failed to parse JSON response: %v. Body: %s", err, string(body))
 	}
@@ -140,7 +134,7 @@ func AssertStatusCode(t *testing.T, resp *http.Response, expectedStatus int) {
 }
 
 // AssertSuccessResponse verifica que la respuesta sea exitosa
-func AssertSuccessResponse(t *testing.T, apiResp *APIResponse) {
+func AssertSuccessResponse(t *testing.T, apiResp *types.APIResponse) {
 	t.Helper()
 
 	if !apiResp.Success {
@@ -149,7 +143,7 @@ func AssertSuccessResponse(t *testing.T, apiResp *APIResponse) {
 }
 
 // AssertErrorResponse verifica que la respuesta sea de error
-func AssertErrorResponse(t *testing.T, apiResp *APIResponse) {
+func AssertErrorResponse(t *testing.T, apiResp *types.APIResponse) {
 	t.Helper()
 
 	if apiResp.Success {
@@ -158,7 +152,7 @@ func AssertErrorResponse(t *testing.T, apiResp *APIResponse) {
 }
 
 // AssertErrorCode verifica el código de error específico
-func AssertErrorCode(t *testing.T, apiResp *APIResponse, expectedErrorCode string) {
+func AssertErrorCode(t *testing.T, apiResp *types.APIResponse, expectedErrorCode string) {
 	t.Helper()
 
 	AssertErrorResponse(t, apiResp)
@@ -223,7 +217,7 @@ func ValidateJSONSchema(t *testing.T, data interface{}, schema interface{}) {
 }
 
 // AssertContainsField verifica que una respuesta contenga un campo específico
-func AssertContainsField(t *testing.T, apiResp *APIResponse, field string) {
+func AssertContainsField(t *testing.T, apiResp *types.APIResponse, field string) {
 	t.Helper()
 	
 	data, ok := apiResp.Data.(map[string]interface{})
@@ -238,7 +232,7 @@ func AssertContainsField(t *testing.T, apiResp *APIResponse, field string) {
 }
 
 // AssertFieldEquals verifica que un campo tenga un valor específico
-func AssertFieldEquals(t *testing.T, apiResp *APIResponse, field string, expected interface{}) {
+func AssertFieldEquals(t *testing.T, apiResp *types.APIResponse, field string, expected interface{}) {
 	t.Helper()
 
 	data, ok := apiResp.Data.(map[string]interface{})

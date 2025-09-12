@@ -12,25 +12,25 @@ import (
 
 // tenantService implementa el servicio de tenant
 type tenantService struct {
-	tenantRepo ports.TenantRepository
-	userRepo   userPorts.UserRepository
+	tenantRepo  ports.TenantRepository
+	userService userPorts.UserService
 }
 
 // NewTenantService crea una nueva instancia del servicio de tenant
 func NewTenantService(
 	tenantRepo ports.TenantRepository,
-	userRepo userPorts.UserRepository,
+	userService userPorts.UserService,
 ) ports.TenantService {
 	return &tenantService{
-		tenantRepo: tenantRepo,
-		userRepo:   userRepo,
+		tenantRepo:  tenantRepo,
+		userService: userService,
 	}
 }
 
 // GetTenantsByUser obtiene todos los tenants asociados a un usuario
 func (s *tenantService) GetTenantsByUser(ctx context.Context, userID uuid.UUID) ([]*tenantDomain.Tenant, error) {
 	// Obtener IDs de tenants del usuario
-	tenantUsers, err := s.userRepo.GetTenantsByUser(ctx, userID)
+	tenantUsers, err := s.userService.GetTenantsByUser(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("error obteniendo tenants del usuario: %w", err)
 	}
@@ -52,7 +52,7 @@ func (s *tenantService) GetTenantsByUser(ctx context.Context, userID uuid.UUID) 
 // SelectTenant selecciona un tenant para el usuario autenticado
 func (s *tenantService) SelectTenant(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID) (*tenantDomain.SelectTenantResponseDto, error) {
 	// Verificar que el usuario tenga acceso al tenant
-	hasAccess, err := s.userRepo.UserHasAccessToTenant(ctx, userID, tenantID)
+	hasAccess, err := s.userService.UserHasAccessToTenant(ctx, userID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("error verificando acceso al tenant: %w", err)
 	}

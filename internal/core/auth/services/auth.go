@@ -20,7 +20,7 @@ import (
 
 // authService implementa el servicio de autenticación usando servicios genéricos
 type authService struct {
-	userRepo         userPorts.UserRepository
+	userService      userPorts.UserService
 	passwordHasher   *hasher.Service
 	tokenService     tokens.Service
 	emailService     email.Service
@@ -29,13 +29,13 @@ type authService struct {
 
 // NewAuthService crea una nueva instancia del servicio de autenticación
 func NewAuthService(
-	userRepo userPorts.UserRepository,
+	userService userPorts.UserService,
 	passwordHasher *hasher.Service,
 	tokenService tokens.Service,
 	emailService email.Service,
 ) ports.AuthService {
 	return &authService{
-		userRepo:         userRepo,
+		userService:      userService,
 		passwordHasher:   passwordHasher,
 		tokenService:     tokenService,
 		emailService:     emailService,
@@ -46,7 +46,7 @@ func NewAuthService(
 // Register registra un nuevo usuario individual o con tenant
 func (s *authService) Register(ctx context.Context, req *domain_auth.AuthRegisterDto) (*domain_auth.AuthRegisterResponse, error) {
 	// 1. Validar si el usuario ya existe
-	existingUser, err := s.userRepo.GetByEmail(ctx, req.Email)
+	existingUser, err := s.userService.GetUserByEmail(ctx, req.Email)
 	if err != nil && !errors.Is(err, sharedErrors.ErrUserNotFound) {
 		return nil, err
 	}
@@ -71,7 +71,7 @@ func (s *authService) Register(ctx context.Context, req *domain_auth.AuthRegiste
 	user.SetEmailVerificationToken(emailToken, s.emailTokenExpiry)
 
 	// 5. Guardar usuario en BD
-	if err := s.userRepo.Create(ctx, user); err != nil {
+	if err := s.userService.CreateUser(ctx, user); err != nil {
 		return nil, fmt.Errorf("error creando usuario: %w", err)
 	}
 
@@ -104,7 +104,7 @@ func (s *authService) Register(ctx context.Context, req *domain_auth.AuthRegiste
 // VerifyUserEmail verifica el email de un usuario usando el token
 func (s *authService) VerifyUserEmail(ctx context.Context, token string) error {
 	// 1. Buscar usuario por token
-	user, err := s.userRepo.GetByEmailToken(ctx, token)
+	user, err := s.userService.GetUserByEmailToken(ctx, token)
 	if err != nil {
 		return fmt.Errorf("invalid verification token")
 	}
@@ -128,7 +128,7 @@ func (s *authService) VerifyUserEmail(ctx context.Context, token string) error {
 	user.ActivateUser()
 
 	// 6. Actualizar en BD
-	if err := s.userRepo.Update(ctx, user); err != nil {
+	if err := s.userService.UpdateUser(ctx, user); err != nil {
 		return fmt.Errorf("error activando usuario: %w", err)
 	}
 
@@ -144,7 +144,7 @@ func (s *authService) VerifyUserEmail(ctx context.Context, token string) error {
 // Login autentica un usuario y retorna tokens
 func (s *authService) Login(ctx context.Context, req *domain_auth.AuthLoginDto) (*domain_auth.AuthLoginResponse, error) {
 	// 1. Buscar usuario por email
-	user, err := s.userRepo.GetByEmail(ctx, req.Email)
+	user, err := s.userService.GetUserByEmail(ctx, req.Email)
 	if err != nil {
 		return nil, fmt.Errorf("invalid email or password")
 	}
@@ -206,7 +206,7 @@ func (s *authService) Login(ctx context.Context, req *domain_auth.AuthLoginDto) 
 
 // ForgotPassword inicia el proceso de recuperación de contraseña
 func (s *authService) ForgotPassword(ctx context.Context, email string) (*userDomain.User, error) {
-	user, err := s.userRepo.GetByEmail(ctx, email)
+	user, err := s.userService.GetUserByEmail(ctx, email)
 	if err != nil {
 		return nil, err
 	}
@@ -245,7 +245,7 @@ func (s *authService) ResetPassword(ctx context.Context, token string, newPasswo
 // ResendEmailVerification reenvía el email de verificación
 func (s *authService) ResendEmailVerification(ctx context.Context, email string) error {
 	// 1. Buscar usuario por email
-	user, err := s.userRepo.GetByEmail(ctx, email)
+	user, err := s.userService.GetUserByEmail(ctx, email)
 	if err != nil {
 		return fmt.Errorf("usuario no encontrado")
 	}
@@ -265,7 +265,7 @@ func (s *authService) ResendEmailVerification(ctx context.Context, email string)
 	user.SetEmailVerificationToken(emailToken, s.emailTokenExpiry)
 
 	// 5. Actualizar en BD
-	if err := s.userRepo.Update(ctx, user); err != nil {
+	if err := s.userService.UpdateUser(ctx, user); err != nil {
 		return fmt.Errorf("error actualizando usuario: %w", err)
 	}
 
@@ -323,7 +323,7 @@ func (s *authService) SelectTenant(ctx context.Context, tenant *tenantDomain.Ten
 	}
 
 	// 2. Obtener información del usuario
-	user, err := s.userRepo.GetByID(ctx, userID)
+	user, err := s.userService.GetUserByID(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("user not found: %w", err)
 	}
@@ -408,7 +408,7 @@ func (s *authService) RefreshAccessToken(ctx context.Context, refreshToken strin
 	}
 
 	// 4. Buscar usuario para validar que sigue activo
-	user, err := s.userRepo.GetByID(ctx, userID)
+	user, err := s.userService.GetUserByID(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("user not found: %w", err)
 	}

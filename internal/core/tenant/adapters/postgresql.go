@@ -28,13 +28,9 @@ func NewPostgreSQLTenantRepository(client *postgresql.PostgresqlClient) ports.Te
 }
 
 func (r *PostgreSQLTenantRepository) GetNextNodeNumber(ctx context.Context) (int, error) {
-	var nodeNumber int
-	query := `SELECT COALESCE(MAX(node_number), 0) + 1 FROM tenants`
-	err := r.client.QueryRow(ctx, query).Scan(&nodeNumber)
-	if err != nil {
-		return 0, fmt.Errorf("error obteniendo siguiente número de nodo: %w", err)
-	}
-	return nodeNumber, nil
+	// Siempre retornar 1 según parámetros del sistema
+	// Si en el futuro se llena el nodo 1, se puede cambiar el parámetro a 2
+	return 1, nil
 }
 
 // Create crea un nuevo tenant en la base de datos control
