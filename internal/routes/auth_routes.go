@@ -25,9 +25,9 @@ func AuthRoutes(app *fiber.App, authController *controllers.AuthController) {
 	// PASO 5: Endpoint para refresh tokens - IMPLEMENTADO
 	auth.Post("/refresh-token", authController.RefreshToken)
 	
-	// TODO: Implementar métodos faltantes en AuthController
-	// auth.Post("/forgot-password", authController.ForgotPassword)
-	// auth.Post("/reset-password", authController.ResetPassword)
+	// Password recovery endpoints - IMPLEMENTADOS
+	auth.Post("/forgot-password", authController.ForgotPassword)
+	auth.Post("/reset-password", authController.ResetPassword)
 
 	// Endpoint alternativo para verificación via GET (links de email)
 	auth.Get("/verify-email/:token", func(c *fiber.Ctx) error {

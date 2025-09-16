@@ -161,6 +161,28 @@ func (r *PostgreSQLUserRepository) GetByEmailToken(ctx context.Context, token st
 	return user, nil
 }
 
+// GetByPasswordResetToken obtiene un usuario por su token de reset de contraseña
+func (r *PostgreSQLUserRepository) GetByPasswordResetToken(ctx context.Context, token string) (*domain.User, error) {
+	query := `
+		SELECT id, username, phone, full_name, identification_number, email,
+			   email_token, email_token_expires, email_verified, password,
+			   password_reset_token, password_reset_expires, last_password_change,
+			   last_login, bank_id, bank_account_number, bank_account_type,
+			   image_url, is_active, created, updated, deleted_at
+		FROM users
+		WHERE password_reset_token = $1 AND deleted_at IS NULL`
+
+	user, err := r.scanUser(r.client.QueryRow(ctx, query, token))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, sharedErrors.ErrUserNotFound
+		}
+		return nil, fmt.Errorf("error obteniendo usuario: %w", err)
+	}
+
+	return user, nil
+}
+
 // Update actualiza un usuario existente
 func (r *PostgreSQLUserRepository) Update(ctx context.Context, user *domain.User) error {
 	query := `

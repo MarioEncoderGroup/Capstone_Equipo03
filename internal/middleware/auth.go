@@ -32,7 +32,7 @@ func AuthMiddleware(dbControl *postgresql.PostgresqlClient) fiber.Handler {
 		// Placeholder for development - remove in production
 		c.Locals("user", fiber.Map{
 			"id":       "placeholder-user-id",
-			"email":    "dev@misviaticos.com",
+			"email":    "dev@misviaticos.cl",
 			"tenantId": "1",
 		})
 

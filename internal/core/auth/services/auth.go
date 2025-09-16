@@ -206,31 +206,47 @@ func (s *authService) Login(ctx context.Context, req *domain_auth.AuthLoginDto) 
 
 // ForgotPassword inicia el proceso de recuperación de contraseña
 func (s *authService) ForgotPassword(ctx context.Context, email string) (*userDomain.User, error) {
+	// 1. Buscar usuario por email
 	user, err := s.userService.GetUserByEmail(ctx, email)
 	if err != nil {
-		return nil, err
+		return nil, sharedErrors.ErrUserNotFound
 	}
 
 	if user == nil {
-		return nil, fmt.Errorf("user with email %s does not exist", email)
+		return nil, sharedErrors.ErrUserNotFound
 	}
 
+	// 2. Verificar que el email esté verificado (regla de negocio)
 	if !user.EmailVerified {
-		return nil, fmt.Errorf("email %s is not verified", email)
+		return nil, sharedErrors.NewValidationError("Email no verificado", "email_not_verified")
 	}
 
-	// Generate a password reset token
+	// 3. Verificar si ya tiene un token activo (prevenir abuso)
+	if user.HasActivePasswordResetToken() {
+		return nil, sharedErrors.NewValidationError("Ya tienes una solicitud de reset activa", "active_reset_token")
+	}
+
+	// 4. Generar token seguro de reset (1 hora de expiración)
 	token, err := s.tokenService.GeneratePasswordResetToken()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error generando token: %w", err)
 	}
 
-	// TODO: Implementar método para establecer token de reset en usuario
-	// user.SetPasswordResetToken(token, expiresAt)
+	// 5. Establecer token en usuario usando método de dominio
+	user.SetPasswordResetToken(token, 1*time.Hour)
+	fmt.Printf("🔵 DEBUG: Set reset token %s for user %s\n", token[:8]+"...", user.Email)
 
-	// Enviar email con token de reset
+	// 6. Guardar usuario con token en BD
+	if err := s.userService.UpdateUser(ctx, user); err != nil {
+		fmt.Printf("❌ DEBUG: Error updating user: %v\n", err)
+		return nil, fmt.Errorf("error actualizando usuario: %w", err)
+	}
+	fmt.Printf("✅ DEBUG: User updated successfully in database\n")
+
+	// 7. Enviar email con token de reset
 	if err := s.sendPasswordResetEmail(ctx, user, token); err != nil {
-		return nil, fmt.Errorf("error sending password reset email: %w", err)
+		// Log error pero no fallar el proceso
+		fmt.Printf("Error enviando email de reset: %v\n", err)
 	}
 
 	return user, nil
@@ -238,8 +254,42 @@ func (s *authService) ForgotPassword(ctx context.Context, email string) (*userDo
 
 // ResetPassword resetea la contraseña usando un token
 func (s *authService) ResetPassword(ctx context.Context, token string, newPassword string) error {
-	// TODO: Implementar siguiendo el patrón de referencia
-	return fmt.Errorf("not implemented")
+	// 1. Buscar usuario por token de reset
+	user, err := s.userService.GetUserByPasswordResetToken(ctx, token)
+	if err != nil {
+		return fmt.Errorf("token de reset inválido")
+	}
+
+	if user == nil {
+		return fmt.Errorf("token de reset inválido")
+	}
+
+	// 2. Validar que el token sea válido y no haya expirado usando método de dominio
+	if !user.IsPasswordResetTokenValid(token) {
+		return fmt.Errorf("token de reset inválido o expirado")
+	}
+
+	// 3. Hash de la nueva contraseña
+	hashedPassword, err := s.passwordHasher.Hash(newPassword)
+	if err != nil {
+		return fmt.Errorf("error hasheando contraseña: %w", err)
+	}
+
+	// 4. Cambiar contraseña usando método de dominio (limpia el token automáticamente)
+	user.ChangePassword(hashedPassword)
+
+	// 5. Actualizar usuario en BD
+	if err := s.userService.UpdateUser(ctx, user); err != nil {
+		return fmt.Errorf("error actualizando contraseña: %w", err)
+	}
+
+	// 6. Opcional: Enviar email de confirmación de cambio de contraseña
+	if err := s.sendPasswordChangeConfirmationEmail(ctx, user); err != nil {
+		// Log error pero no fallar el proceso
+		fmt.Printf("Error enviando email de confirmación: %v\n", err)
+	}
+
+	return nil
 }
 
 // ResendEmailVerification reenvía el email de verificación
@@ -283,7 +333,7 @@ func (s *authService) sendEmailVerification(ctx context.Context, user *userDomai
 	templateData := &email.TemplateData{
 		FullName: user.FullName,
 		Email:    user.Email,
-		URL:      fmt.Sprintf("https://misviaticos.com/verify?token=%s", token),
+		URL:      fmt.Sprintf("https://misviaticos.cl/verify?token=%s", token),
 	}
 
 	return s.emailService.SendTemplateEmail(ctx, email.TemplateEmailVerification, templateData)
@@ -294,7 +344,7 @@ func (s *authService) sendWelcomeEmail(ctx context.Context, user *userDomain.Use
 	templateData := &email.TemplateData{
 		FullName: user.FullName,
 		Email:    user.Email,
-		URL:      "https://misviaticos.com/dashboard",
+		URL:      "https://misviaticos.cl/dashboard",
 	}
 
 	return s.emailService.SendTemplateEmail(ctx, email.TemplateWelcome, templateData)
@@ -305,7 +355,7 @@ func (s *authService) sendPasswordResetEmail(ctx context.Context, user *userDoma
 	templateData := &email.TemplateData{
 		FullName: user.FullName,
 		Email:    user.Email,
-		URL:      fmt.Sprintf("https://misviaticos.com/reset-password?token=%s", token),
+		URL:      fmt.Sprintf("https://misviaticos.cl/reset-password?token=%s", token),
 	}
 
 	return s.emailService.SendTemplateEmail(ctx, email.TemplatePasswordReset, templateData)
@@ -480,4 +530,16 @@ func (s *authService) RevokeRefreshToken(ctx context.Context, refreshToken strin
 	// requiere persistencia que implementaremos más adelante
 
 	return nil
+}
+
+// sendPasswordChangeConfirmationEmail envía email de confirmación de cambio de contraseña
+func (s *authService) sendPasswordChangeConfirmationEmail(ctx context.Context, user *userDomain.User) error {
+	templateData := &email.TemplateData{
+		FullName: user.FullName,
+		Email:    user.Email,
+		URL:      "https://misviaticos.cl/login",
+		Message:  "Tu contraseña ha sido cambiada exitosamente",
+	}
+
+	return s.emailService.SendTemplateEmail(ctx, email.TemplateGeneric, templateData)
 }

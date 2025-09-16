@@ -62,9 +62,8 @@ type ForgotPasswordDto struct {
 
 // ResetPasswordDto para resetear contraseña
 type ResetPasswordDto struct {
-	Token           string `json:"token" validate:"required"`
-	NewPassword     string `json:"new_password" validate:"required,min=8"`
-	PasswordConfirm string `json:"password_confirm" validate:"required,eqfield=NewPassword"`
+	Token       string `json:"token" validate:"required"`
+	NewPassword string `json:"newPassword" validate:"required,min=8"`
 }
 
 // PASO 5: DTOs para Refresh Token System

@@ -129,3 +129,44 @@ func (u *User) SetEmailVerificationToken(token string, expiresIn time.Duration) 
 	u.EmailTokenExpires = &expires
 	u.Updated = time.Now()
 }
+
+// SetPasswordResetToken establece el token de recuperación de contraseña
+// Regla de negocio: Solo un token activo por usuario, expiración de 1 hora
+func (u *User) SetPasswordResetToken(token string, expiresIn time.Duration) {
+	u.PasswordResetToken = &token
+	expires := time.Now().UTC().Add(expiresIn)
+	u.PasswordResetExpires = &expires
+	u.Updated = time.Now().UTC()
+}
+
+// IsPasswordResetTokenValid valida si el token de reset es válido y no ha expirado
+// Regla de negocio: Token debe existir, coincidir exactamente y no estar expirado
+func (u *User) IsPasswordResetTokenValid(token string) bool {
+	if u.PasswordResetToken == nil || *u.PasswordResetToken != token {
+		return false
+	}
+	if u.PasswordResetExpires == nil || time.Now().UTC().After(*u.PasswordResetExpires) {
+		return false
+	}
+	return true
+}
+
+// ChangePassword cambia la contraseña del usuario y limpia el token de reset
+// Regla de negocio: Invalidar token después del cambio, actualizar timestamp
+func (u *User) ChangePassword(newHashedPassword string) {
+	u.Password = newHashedPassword
+	u.PasswordResetToken = nil
+	u.PasswordResetExpires = nil
+	now := time.Now().UTC()
+	u.LastPasswordChange = &now
+	u.Updated = now
+}
+
+// HasActivePasswordResetToken verifica si el usuario tiene un token de reset activo
+// Regla de negocio: Para prevenir múltiples tokens simultáneos
+func (u *User) HasActivePasswordResetToken() bool {
+	if u.PasswordResetToken == nil || u.PasswordResetExpires == nil {
+		return false
+	}
+	return time.Now().UTC().Before(*u.PasswordResetExpires)
+}
