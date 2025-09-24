@@ -419,3 +419,80 @@ func (r *PostgreSQLUserRepository) scanTenantUser(rows pgx.Rows) (*domain.Tenant
 
 	return tenantUser, nil
 }
+
+// GetUsers obtiene una lista paginada de usuarios
+func (r *PostgreSQLUserRepository) GetUsers(ctx context.Context, offset, limit int, sortBy, sortDir, search string) ([]*domain.User, int64, error) {
+	// Primero obtener el total de registros
+	countQuery := `SELECT COUNT(*) FROM users WHERE deleted_at IS NULL`
+	var countArgs []interface{}
+
+	if search != "" {
+		countQuery += ` AND (full_name ILIKE $1 OR email ILIKE $1 OR username ILIKE $1)`
+		countArgs = append(countArgs, "%"+search+"%")
+	}
+
+	var total int64
+	err := r.client.QueryRow(ctx, countQuery, countArgs...).Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("error contando usuarios: %w", err)
+	}
+
+	// Construir query principal
+	query := `
+		SELECT id, username, phone, full_name, identification_number, email,
+			   email_token, email_token_expires, email_verified, password,
+			   password_reset_token, password_reset_expires, last_password_change,
+			   last_login, bank_id, bank_account_number, bank_account_type,
+			   image_url, is_active, created, updated, deleted_at
+		FROM users
+		WHERE deleted_at IS NULL`
+
+	var args []interface{}
+	argIndex := 1
+
+	if search != "" {
+		query += ` AND (full_name ILIKE $` + fmt.Sprintf("%d", argIndex) +
+				 ` OR email ILIKE $` + fmt.Sprintf("%d", argIndex) +
+				 ` OR username ILIKE $` + fmt.Sprintf("%d", argIndex) + `)`
+		args = append(args, "%"+search+"%")
+		argIndex++
+	}
+
+	query += ` ORDER BY ` + sortBy + ` ` + sortDir
+	query += ` LIMIT $` + fmt.Sprintf("%d", argIndex) + ` OFFSET $` + fmt.Sprintf("%d", argIndex+1)
+	args = append(args, limit, offset)
+
+	rows, err := r.client.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("error consultando usuarios: %w", err)
+	}
+	defer rows.Close()
+
+	var users []*domain.User
+	for rows.Next() {
+		user, err := r.scanUser(rows)
+		if err != nil {
+			return nil, 0, fmt.Errorf("error escaneando usuario: %w", err)
+		}
+		users = append(users, user)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("error iterando usuarios: %w", err)
+	}
+
+	return users, total, nil
+}
+
+// CheckUserExists verifica si un usuario existe por ID
+func (r *PostgreSQLUserRepository) CheckUserExists(ctx context.Context, id uuid.UUID) (bool, error) {
+	query := `SELECT EXISTS(SELECT 1 FROM users WHERE id = $1 AND deleted_at IS NULL)`
+
+	var exists bool
+	err := r.client.QueryRow(ctx, query, id).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("error verificando existencia de usuario: %w", err)
+	}
+
+	return exists, nil
+}

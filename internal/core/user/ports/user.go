@@ -54,6 +54,12 @@ type UserRepository interface {
 	
 	// RemoveUserFromTenant desasocia un usuario de un tenant (soft delete)
 	RemoveUserFromTenant(ctx context.Context, userID, tenantID uuid.UUID) error
+
+	// GetUsers obtiene una lista paginada de usuarios
+	GetUsers(ctx context.Context, offset, limit int, sortBy, sortDir, search string) ([]*domain.User, int64, error)
+
+	// CheckUserExists verifica si un usuario existe por ID
+	CheckUserExists(ctx context.Context, id uuid.UUID) (bool, error)
 }
 
 // UserService define el contrato para el servicio de usuarios
@@ -89,4 +95,25 @@ type UserService interface {
 	
 	// AddUserToTenant asocia un usuario a un tenant
 	AddUserToTenant(ctx context.Context, tenantUser *domain.TenantUser) error
+
+	// GetUsers obtiene una lista paginada de usuarios con validaciones de negocio
+	GetUsers(ctx context.Context, offset, limit int, sortBy, sortDir, search string) ([]*domain.User, int64, error)
+
+	// CheckUserExists verifica si un usuario existe por ID
+	CheckUserExists(ctx context.Context, id uuid.UUID) (bool, error)
+
+	// DeleteUser elimina lógicamente un usuario (soft delete)
+	DeleteUser(ctx context.Context, id uuid.UUID) error
+
+	// CreateUserFromDto crea un usuario desde un DTO con validaciones
+	CreateUserFromDto(ctx context.Context, dto *domain.CreateUserDto) (*domain.User, error)
+
+	// UpdateUserFromDto actualiza un usuario desde un DTO con validaciones
+	UpdateUserFromDto(ctx context.Context, id uuid.UUID, dto *domain.UpdateUserDto) (*domain.User, error)
+
+	// ChangeUserPassword cambia la contraseña de un usuario con validaciones
+	ChangeUserPassword(ctx context.Context, id uuid.UUID, dto *domain.ChangePasswordDto) error
+
+	// UpdateUserProfile actualiza el perfil de un usuario autenticado
+	UpdateUserProfile(ctx context.Context, id uuid.UUID, dto *domain.UpdateProfileDto) (*domain.User, error)
 }

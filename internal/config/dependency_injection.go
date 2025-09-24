@@ -2,6 +2,7 @@ package config
 
 import (
 	"github.com/JoseLuis21/mv-backend/internal/controllers"
+	"github.com/JoseLuis21/mv-backend/internal/middlewares"
 	"github.com/JoseLuis21/mv-backend/internal/shared/email"
 	"github.com/JoseLuis21/mv-backend/internal/shared/hasher"
 	"github.com/JoseLuis21/mv-backend/internal/shared/tokens"
@@ -10,6 +11,12 @@ import (
 	tenantServices "github.com/JoseLuis21/mv-backend/internal/core/tenant/services"
 	userAdapters "github.com/JoseLuis21/mv-backend/internal/core/user/adapters"
 	userServices "github.com/JoseLuis21/mv-backend/internal/core/user/services"
+	roleAdapters "github.com/JoseLuis21/mv-backend/internal/core/role/adapters"
+	roleServices "github.com/JoseLuis21/mv-backend/internal/core/role/services"
+	permissionAdapters "github.com/JoseLuis21/mv-backend/internal/core/permission/adapters"
+	permissionServices "github.com/JoseLuis21/mv-backend/internal/core/permission/services"
+	userRoleAdapters "github.com/JoseLuis21/mv-backend/internal/core/user_role/adapters"
+	userRoleServices "github.com/JoseLuis21/mv-backend/internal/core/user_role/services"
 	"github.com/JoseLuis21/mv-backend/internal/libraries/postgresql"
 	"github.com/JoseLuis21/mv-backend/internal/shared/validatorapi"
 	"github.com/gofiber/fiber/v2"
@@ -18,8 +25,15 @@ import (
 // Dependencies contiene todas las dependencias inyectadas de la aplicación
 type Dependencies struct {
 	// Controllers
-	AuthController   *controllers.AuthController
-	TenantController *controllers.TenantController
+	AuthController       *controllers.AuthController
+	TenantController     *controllers.TenantController
+	UserController       *controllers.UserController
+	RoleController       *controllers.RoleController
+	PermissionController *controllers.PermissionController
+	UserRoleController   *controllers.UserRoleController
+
+	// Middlewares
+	RBACMiddleware *middlewares.RBACMiddleware
 
 	// Infrastructure
 	DBControl *postgresql.PostgresqlClient
@@ -35,6 +49,9 @@ func NewDependencies(dbControl *postgresql.PostgresqlClient) (*Dependencies, err
 	// 2. Crear adaptadores (outer layer)
 	userRepo := userAdapters.NewPostgreSQLUserRepository(dbControl)
 	tenantRepo := adapters.NewPostgreSQLTenantRepository(dbControl)
+	roleRepo := roleAdapters.NewPostgreSQLRoleRepository(dbControl)
+	permissionRepo := permissionAdapters.NewPgPermissionRepository(dbControl)
+	userRoleRepo := userRoleAdapters.NewPgUserRoleRepository(dbControl)
 
 	// 3. Crear servicios auxiliares usando módulos genéricos
 	passwordHasher := hasher.NewService()
@@ -43,28 +60,43 @@ func NewDependencies(dbControl *postgresql.PostgresqlClient) (*Dependencies, err
 
 	// 4. Crear servicios de dominio (core layer) siguiendo patrón de referencia
 	userService := userServices.NewUserService(userRepo)
-	
+	roleService := roleServices.NewRoleService(roleRepo)
+	permissionService := permissionServices.NewPermissionService(permissionRepo)
+	userRoleService := userRoleServices.NewUserRoleService(userRoleRepo, userService, roleService)
+
 	authService := services.NewAuthService(
 		userService,
 		passwordHasher,
 		tokenGenerator,
 		emailService,
 	)
-	
+
 	tenantService := tenantServices.NewTenantService(
 		tenantRepo,
 		userService,
 	)
 
-	// 5. Crear controllers (adapter layer - entrada HTTP)
+	// 5. Crear middlewares
+	rbacMiddleware := middlewares.NewRBACMiddleware(roleService, permissionService)
+
+	// 6. Crear controllers (adapter layer - entrada HTTP)
 	authController := controllers.NewAuthController(authService, validator)
 	tenantController := controllers.NewTenantController(tenantService, authService, validator)
+	userController := controllers.NewUserController(userService, validator)
+	roleController := controllers.NewRoleController(roleService, validator)
+	permissionController := controllers.NewPermissionController(permissionService, validator)
+	userRoleController := controllers.NewUserRoleController(userRoleService, validator)
 
 	return &Dependencies{
-		AuthController:   authController,
-		TenantController: tenantController,
-		DBControl:        dbControl,
-		Validator:        validator,
+		AuthController:       authController,
+		TenantController:     tenantController,
+		UserController:       userController,
+		RoleController:       roleController,
+		PermissionController: permissionController,
+		UserRoleController:   userRoleController,
+		RBACMiddleware:       rbacMiddleware,
+		DBControl:            dbControl,
+		Validator:            validator,
 	}, nil
 }
 

@@ -166,8 +166,8 @@ func (s *Server) Start() error {
 	// Define public routes (authentication, registration) - Legacy routes
 	routes.PublicRoutes(app)
 
-	// Define private routes (expenses, receipts, reports)
-	routes.PrivateRoutes(app, s.dbControl, dependencies.TenantController)
+	// Define private routes (expenses, receipts, reports, users, roles, permissions)
+	routes.PrivateRoutes(app, s.dbControl, dependencies.TenantController, dependencies.UserController, dependencies.RoleController, dependencies.PermissionController, dependencies.UserRoleController, dependencies.RBACMiddleware)
 
 	// Start server
 	return app.Listen(s.host + ":" + s.port)
