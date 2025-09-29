@@ -1,14 +1,14 @@
 package routes
 
 import (
+	"github.com/gofiber/fiber/v2"
 	"github.com/JoseLuis21/mv-backend/internal/controllers"
 	"github.com/JoseLuis21/mv-backend/internal/libraries/postgresql"
 	"github.com/JoseLuis21/mv-backend/internal/middleware"
-	"github.com/gofiber/fiber/v2"
 )
 
 // PrivateRoutes defines all private routes for MisViaticos API
-func PrivateRoutes(app *fiber.App, dbControl *postgresql.PostgresqlClient) *fiber.App {
+func PrivateRoutes(app *fiber.App, dbControl *postgresql.PostgresqlClient, tenantController *controllers.TenantController) *fiber.App {
 	// Create authentication middleware
 	authMiddleware := middleware.AuthMiddleware(dbControl)
 
@@ -17,11 +17,18 @@ func PrivateRoutes(app *fiber.App, dbControl *postgresql.PostgresqlClient) *fibe
 
 	// Tenant management routes
 	tenant := private.Group("/tenant")
-	tenant.Post("/create", controllers.CreateTenant)
-	tenant.Put("/update/:tenantID", controllers.UpdateTenant)
-	tenant.Post("/select", controllers.SelectTenant)
-	tenant.Get("/current", controllers.GetCurrentTenant)
+	tenant.Get("/", tenantController.GetTenantsByUser)
+	tenant.Post("/select/:tenantId", tenantController.SelectTenant)
+	tenant.Get("/:tenantId/profile", tenantController.GetTenantProfile)
+	tenant.Put("/:tenantId/profile", tenantController.UpdateTenantProfile)
 
+	// TODO: Implement these controllers
+	// tenant.Post("/create", controllers.CreateTenant)
+	// tenant.Put("/update/:tenantID", controllers.UpdateTenant)
+	// tenant.Get("/current", controllers.GetCurrentTenant)
+
+	// TODO: Implement all remaining controllers and uncomment these routes
+	/*
 	// User management routes
 	users := private.Group("/users")
 	users.Get("/profile", controllers.GetUserProfile)
@@ -65,6 +72,7 @@ func PrivateRoutes(app *fiber.App, dbControl *postgresql.PostgresqlClient) *fibe
 	admin.Get("/users", controllers.GetAllUsers)
 	admin.Get("/expenses", controllers.GetAllExpenses)
 	admin.Get("/analytics", controllers.GetAnalytics)
+	*/
 
 	return app
 }
