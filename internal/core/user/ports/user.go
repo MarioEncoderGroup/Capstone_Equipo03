@@ -24,6 +24,9 @@ type UserRepository interface {
 	
 	// GetByEmailToken obtiene un usuario por su token de verificación de email
 	GetByEmailToken(ctx context.Context, token string) (*domain.User, error)
+
+	// GetByPasswordResetToken obtiene un usuario por su token de reset de contraseña
+	GetByPasswordResetToken(ctx context.Context, token string) (*domain.User, error)
 	
 	// Update actualiza un usuario existente
 	Update(ctx context.Context, user *domain.User) error
@@ -68,6 +71,9 @@ type UserService interface {
 	
 	// GetUserByEmailToken obtiene un usuario por su token de verificación de email
 	GetUserByEmailToken(ctx context.Context, token string) (*domain.User, error)
+
+	// GetUserByPasswordResetToken obtiene un usuario por su token de reset de contraseña
+	GetUserByPasswordResetToken(ctx context.Context, token string) (*domain.User, error)
 	
 	// UpdateUser actualiza un usuario existente
 	UpdateUser(ctx context.Context, user *domain.User) error

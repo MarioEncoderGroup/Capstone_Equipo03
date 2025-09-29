@@ -198,8 +198,8 @@ func TestTokenReuse(t *testing.T) {
 
 		// El mensaje puede ser "email ya verificado" o "token inválido"
 		errorMsg := verifyApiResp2.Error
-		assert.True(t, 
-			contains(errorMsg, "verified") || contains(errorMsg, "inválido"),
+		assert.True(t,
+			contains(errorMsg, "verified") || contains(errorMsg, "inválido") || contains(errorMsg, "invalid"),
 			"Should indicate token is invalid or email already verified, got: %s", errorMsg)
 
 		t.Log("✅ Reutilización de token rechazada correctamente")

@@ -264,3 +264,108 @@ func (ac *AuthController) RefreshToken(c *fiber.Ctx) error {
 		Data:    response,
 	})
 }
+
+// ForgotPassword maneja la solicitud de recuperación de contraseña
+func (ac *AuthController) ForgotPassword(c *fiber.Ctx) error {
+	// 1. Parsear request usando DTO del dominio
+	var req authDomain.ForgotPasswordDto
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(types.APIResponse{
+			Success: false,
+			Message: "Error parseando datos",
+			Error:   "Email requerido",
+		})
+	}
+
+	// 2. Validar estructura
+	if errors := ac.validator.ValidateStruct(req); len(errors) > 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(types.APIResponse{
+			Success: false,
+			Message: "Email inválido",
+			Error:   "Email válido es requerido",
+		})
+	}
+
+	// 3. Usar contexto de Fiber
+	// 4. Iniciar proceso de recuperación
+	_, err := ac.authService.ForgotPassword(c.Context(), req.Email)
+	if err != nil {
+		// Manejar USER_NOT_FOUND de forma especial por seguridad
+		if appErr, ok := sharedErrors.IsAppError(err); ok {
+			if appErr.Code == "USER_NOT_FOUND" {
+				// Por seguridad, retornar el mismo mensaje que si el email existiera
+				return c.JSON(types.APIResponse{
+					Success: true,
+					Message: "Si el email existe, recibirás instrucciones para recuperar tu contraseña",
+				})
+			}
+
+			// Otros errores específicos (email no verificado, token activo, etc.)
+			return c.Status(appErr.HTTPCode).JSON(types.APIResponse{
+				Success: false,
+				Message: appErr.Message,
+				Error:   appErr.Code,
+			})
+		}
+
+		// Error genérico - no revelar detalles por seguridad
+		return c.Status(fiber.StatusBadRequest).JSON(types.APIResponse{
+			Success: false,
+			Message: "Si el email existe, recibirás instrucciones para recuperar tu contraseña",
+			Error:   "FORGOT_PASSWORD_ERROR",
+		})
+	}
+
+	// 5. Respuesta exitosa (mismo mensaje independientemente de si el email existe)
+	return c.JSON(types.APIResponse{
+		Success: true,
+		Message: "Si el email existe, recibirás instrucciones para recuperar tu contraseña",
+	})
+}
+
+// ResetPassword maneja el reseteo de contraseña usando token
+func (ac *AuthController) ResetPassword(c *fiber.Ctx) error {
+	// 1. Parsear request usando DTO del dominio
+	var req authDomain.ResetPasswordDto
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(types.APIResponse{
+			Success: false,
+			Message: "Error parseando datos",
+			Error:   "Token y nueva contraseña requeridos",
+		})
+	}
+
+	// 2. Validar estructura
+	if errors := ac.validator.ValidateStruct(req); len(errors) > 0 {
+		var validationErrors []types.ValidationErrorResponse
+		for _, err := range errors {
+			validationErrors = append(validationErrors, types.ValidationErrorResponse{
+				Field:   err.Field,
+				Message: err.Message,
+			})
+		}
+
+		return c.Status(fiber.StatusBadRequest).JSON(types.APIResponse{
+			Success: false,
+			Message: "Errores de validación",
+			Data:    validationErrors,
+		})
+	}
+
+	// 3. Usar contexto de Fiber
+	// 4. Resetear contraseña
+	err := ac.authService.ResetPassword(c.Context(), req.Token, req.NewPassword)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(types.APIResponse{
+			Success: false,
+			Message: "Error reseteando contraseña",
+			Error:   err.Error(),
+		})
+	}
+
+	// 5. Respuesta exitosa
+	return c.JSON(types.APIResponse{
+		Success: true,
+		Message: "Contraseña actualizada exitosamente",
+	})
+}

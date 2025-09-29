@@ -39,6 +39,11 @@ func (s *userService) GetUserByEmailToken(ctx context.Context, token string) (*d
 	return s.userRepo.GetByEmailToken(ctx, token)
 }
 
+// GetUserByPasswordResetToken obtiene un usuario por su token de reset de contraseña
+func (s *userService) GetUserByPasswordResetToken(ctx context.Context, token string) (*domain.User, error) {
+	return s.userRepo.GetByPasswordResetToken(ctx, token)
+}
+
 // UpdateUser actualiza un usuario existente
 func (s *userService) UpdateUser(ctx context.Context, user *domain.User) error {
 	return s.userRepo.Update(ctx, user)
