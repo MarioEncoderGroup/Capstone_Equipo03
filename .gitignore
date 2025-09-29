@@ -61,7 +61,6 @@ receipts/
 *.jpeg
 *.png
 *.gif
-email_templates/**
 
 # Docker
 docker-data/

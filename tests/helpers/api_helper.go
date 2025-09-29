@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/JoseLuis21/mv-backend/internal/config"
+	"github.com/JoseLuis21/mv-backend/internal/libraries/postgresql"
 	"github.com/JoseLuis21/mv-backend/internal/routes"
 	"github.com/JoseLuis21/mv-backend/internal/shared/types"
 	"github.com/go-playground/validator/v10"
@@ -21,6 +22,7 @@ type TestServer struct {
 	App        *fiber.App
 	TestClient *http.Client
 	BaseURL    string
+	DBClient   *postgresql.PostgresqlClient // Exposer cliente de BD para tests de integración
 }
 
 
@@ -67,6 +69,7 @@ func CreateTestServer(t *testing.T) (*TestServer, func()) {
 		App:        app,
 		TestClient: testClient,
 		BaseURL:    "http://localhost:8080", // No usado en tests pero para consistencia
+		DBClient:   dbClient, // Exponer cliente de BD para tests de integración
 	}
 
 	cleanup := func() {

@@ -3,8 +3,11 @@ package email
 import (
 	"context"
 	"fmt"
+	"html/template"
 	"log"
 	"net/smtp"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/JoseLuis21/mv-backend/internal/shared/config"
@@ -21,7 +24,8 @@ type Service interface {
 // ServiceImpl implementa el servicio genérico de envío de emails
 // Soporta múltiples proveedores: SMTP, AWS SES, SendGrid
 type ServiceImpl struct {
-	config *config.EmailConfig
+	config    *config.EmailConfig
+	templates map[EmailTemplate]*template.Template
 }
 
 // NewService crea una nueva instancia del servicio genérico de email
@@ -33,8 +37,12 @@ func NewService() Service {
 		log.Printf("⚠️  Email habilitado pero configuración incompleta para proveedor: %s", emailConfig.Provider)
 	}
 
+	// Cargar templates HTML
+	templates := loadEmailTemplates()
+
 	return &ServiceImpl{
-		config: emailConfig,
+		config:    emailConfig,
+		templates: templates,
 	}
 }
 
@@ -201,10 +209,15 @@ func (es *ServiceImpl) buildEmailVerificationMessage(data *TemplateData) (*Messa
 		return nil, errors.WrapError(errors.ErrEmailService, "configuración de email incompleta")
 	}
 
+	body, err := es.renderTemplate(TemplateEmailVerification, data)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Message{
 		To:      []string{data.Email},
 		Subject: "Verifica tu cuenta en MisViáticos",
-		Body:    es.buildEmailVerificationHTML(data.FullName, data.URL),
+		Body:    body,
 		IsHTML:  true,
 	}, nil
 }
@@ -221,10 +234,15 @@ func (es *ServiceImpl) buildPasswordResetMessage(data *TemplateData) (*Message, 
 		return nil, errors.WrapError(errors.ErrEmailService, "configuración de email incompleta")
 	}
 
+	body, err := es.renderTemplate(TemplatePasswordReset, data)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Message{
 		To:      []string{data.Email},
 		Subject: "Recupera tu contraseña - MisViáticos",
-		Body:    es.buildPasswordResetHTML(data.FullName, data.URL),
+		Body:    body,
 		IsHTML:  true,
 	}, nil
 }
@@ -240,10 +258,15 @@ func (es *ServiceImpl) buildWelcomeMessage(data *TemplateData) (*Message, error)
 		return nil, errors.WrapError(errors.ErrEmailService, "configuración de email incompleta")
 	}
 
+	body, err := es.renderTemplate(TemplateWelcome, data)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Message{
 		To:      []string{data.Email},
 		Subject: "¡Bienvenido a MisViáticos!",
-		Body:    es.buildWelcomeEmailHTML(data.FullName),
+		Body:    body,
 		IsHTML:  true,
 	}, nil
 }
@@ -267,125 +290,100 @@ func (es *ServiceImpl) buildGenericMessage(data *TemplateData) (*Message, error)
 	}, nil
 }
 
-// buildEmailVerificationHTML construye el HTML para email de verificación
-func (es *ServiceImpl) buildEmailVerificationHTML(fullName, verificationURL string) string {
-	return fmt.Sprintf(`
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Verifica tu cuenta</title>
-</head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h2 style="color: #2c3e50;">¡Hola %s!</h2>
-        
-        <p>Gracias por registrarte en MisViáticos. Para completar tu registro, por favor verifica tu email haciendo clic en el siguiente enlace:</p>
-        
-        <div style="text-align: center; margin: 30px 0;">
-            <a href="%s" style="display: inline-block; padding: 12px 30px; background-color: #3498db; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
-                Verificar Email
-            </a>
-        </div>
-        
-        <p>Si no puedes hacer clic en el botón, copia y pega el siguiente enlace en tu navegador:</p>
-        <p style="word-break: break-all; color: #666;">%s</p>
-        
-        <p style="margin-top: 30px; font-size: 12px; color: #666;">
-            Este enlace expirará en 24 horas. Si no solicitaste este registro, puedes ignorar este email.
-        </p>
-        
-        <hr style="margin: 30px 0; border: 0; border-top: 1px solid #eee;">
-        <p style="font-size: 12px; color: #666; text-align: center;">
-            © 2024 MisViáticos - Sistema de gestión de viáticos para Chile
-        </p>
-    </div>
-</body>
-</html>
-`, fullName, verificationURL, verificationURL)
+
+
+// loadEmailTemplates carga los templates HTML externos
+func loadEmailTemplates() map[EmailTemplate]*template.Template {
+	templates := make(map[EmailTemplate]*template.Template)
+	
+	// Buscar la raíz del proyecto
+	projectRoot := findProjectRoot()
+	
+	templateFiles := map[EmailTemplate]string{
+		TemplateEmailVerification: "email_templates/verification.html",
+		TemplatePasswordReset:     "email_templates/password_reset.html", 
+		TemplateWelcome:           "email_templates/welcome.html",
+	}
+	
+	for templateType, relativeFilePath := range templateFiles {
+		// Construir ruta absoluta
+		filePath := filepath.Join(projectRoot, relativeFilePath)
+		
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			log.Printf("⚠️ Template no encontrado: %s, usando template por defecto", filePath)
+			continue
+		}
+		
+		tmpl, err := template.ParseFiles(filePath)
+		if err != nil {
+			log.Printf("❌ Error cargando template %s: %v", filePath, err)
+			continue
+		}
+		
+		templates[templateType] = tmpl
+		log.Printf("✅ Template cargado: %s", filePath)
+	}
+	
+	return templates
 }
 
-// buildPasswordResetHTML construye el HTML para email de reset
-func (es *ServiceImpl) buildPasswordResetHTML(fullName, resetURL string) string {
-	return fmt.Sprintf(`
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Recupera tu contraseña</title>
-</head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h2 style="color: #e74c3c;">Recupera tu contraseña</h2>
-        
-        <p>Hola %s,</p>
-        
-        <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta en MisViáticos. Haz clic en el siguiente enlace para crear una nueva contraseña:</p>
-        
-        <div style="text-align: center; margin: 30px 0;">
-            <a href="%s" style="display: inline-block; padding: 12px 30px; background-color: #e74c3c; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
-                Restablecer Contraseña
-            </a>
-        </div>
-        
-        <p>Si no puedes hacer clic en el botón, copia y pega el siguiente enlace en tu navegador:</p>
-        <p style="word-break: break-all; color: #666;">%s</p>
-        
-        <p style="margin-top: 30px; font-size: 12px; color: #666;">
-            Este enlace expirará en 1 hora. Si no solicitaste este cambio, puedes ignorar este email.
-        </p>
-        
-        <hr style="margin: 30px 0; border: 0; border-top: 1px solid #eee;">
-        <p style="font-size: 12px; color: #666; text-align: center;">
-            © 2024 MisViáticos - Sistema de gestión de viáticos para Chile
-        </p>
-    </div>
-</body>
-</html>
-`, fullName, resetURL, resetURL)
+// findProjectRoot busca la raíz del proyecto buscando el archivo go.mod
+func findProjectRoot() string {
+	// Empezar desde el directorio actual
+	dir, err := os.Getwd()
+	if err != nil {
+		log.Printf("⚠️ Error obteniendo directorio actual: %v", err)
+		return "."
+	}
+	
+	// Buscar hacia arriba hasta encontrar go.mod
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+		
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			// Llegamos a la raíz del sistema de archivos
+			break
+		}
+		dir = parent
+	}
+	
+	log.Printf("⚠️ No se encontró go.mod, usando directorio actual")
+	return "."
 }
 
-// buildWelcomeEmailHTML construye el HTML para email de bienvenida
-func (es *ServiceImpl) buildWelcomeEmailHTML(fullName string) string {
-	return fmt.Sprintf(`
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>¡Bienvenido a MisViáticos!</title>
-</head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h2 style="color: #27ae60;">¡Bienvenido a MisViáticos!</h2>
-        
-        <p>¡Hola %s!</p>
-        
-        <p>Tu cuenta ha sido verificada exitosamente. Ya puedes comenzar a usar MisViáticos para gestionar tus viáticos y gastos empresariales.</p>
-        
-        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
-            <h3 style="color: #2c3e50; margin-top: 0;">¿Qué puedes hacer ahora?</h3>
-            <ul style="margin: 10px 0;">
-                <li>Crear y gestionar reportes de gastos</li>
-                <li>Cargar recibos y facturas</li>
-                <li>Configurar políticas de viáticos</li>
-                <li>Invitar a otros miembros de tu empresa</li>
-            </ul>
-        </div>
-        
-        <div style="text-align: center; margin: 30px 0;">
-            <a href="%s" style="display: inline-block; padding: 12px 30px; background-color: #27ae60; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
-                Ir a MisViáticos
-            </a>
-        </div>
-        
-        <p>Si tienes alguna pregunta o necesitas ayuda, no dudes en contactarnos.</p>
-        
-        <hr style="margin: 30px 0; border: 0; border-top: 1px solid #eee;">
-        <p style="font-size: 12px; color: #666; text-align: center;">
-            © 2024 MisViáticos - Sistema de gestión de viáticos para Chile
-        </p>
-    </div>
-</body>
-</html>
-`, fullName, es.config.FrontendURL)
+// renderTemplate renderiza un template con los datos proporcionados
+func (es *ServiceImpl) renderTemplate(templateType EmailTemplate, data *TemplateData) (string, error) {
+	tmpl, exists := es.templates[templateType]
+	if !exists {
+		log.Printf("⚠️ Template %v no encontrado, usando fallback mínimo", templateType)
+		return es.getFallbackTemplate(templateType, data)
+	}
+	
+	var buffer strings.Builder
+	err := tmpl.Execute(&buffer, data)
+	if err != nil {
+		log.Printf("❌ Error renderizando template %v: %v", templateType, err)
+		log.Printf("🔄 Usando fallback mínimo para template %v", templateType)
+		return es.getFallbackTemplate(templateType, data)
+	}
+	
+	return buffer.String(), nil
 }
+
+// getFallbackTemplate proporciona templates mínimos como fallback
+func (es *ServiceImpl) getFallbackTemplate(templateType EmailTemplate, data *TemplateData) (string, error) {
+	switch templateType {
+	case TemplateEmailVerification:
+		return fmt.Sprintf(`<h2>Hola %s</h2><p>Verifica tu cuenta haciendo clic aquí: <a href="%s">%s</a></p>`, data.FullName, data.URL, data.URL), nil
+	case TemplatePasswordReset:
+		return fmt.Sprintf(`<h2>Hola %s</h2><p>Restablece tu contraseña haciendo clic aquí: <a href="%s">%s</a></p>`, data.FullName, data.URL, data.URL), nil
+	case TemplateWelcome:
+		return fmt.Sprintf(`<h2>¡Bienvenido %s!</h2><p>Tu cuenta ha sido activada exitosamente.</p>`, data.FullName), nil
+	default:
+		return "", errors.NewValidationError("template no soportado", "template_type")
+	}
+}
+
