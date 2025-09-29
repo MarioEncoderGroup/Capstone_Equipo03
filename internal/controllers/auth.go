@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -180,8 +181,8 @@ func (ac *AuthController) Login(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(types.APIResponse{
 			Success: false,
-			Message: "Error parseando datos",
-			Error:   "Formato de datos inválido",
+			Message: "Formato de datos inválido",
+			Error:   "INVALID_REQUEST_FORMAT",
 		})
 	}
 
@@ -189,23 +190,44 @@ func (ac *AuthController) Login(c *fiber.Ctx) error {
 	if errors := ac.validator.ValidateStruct(req); len(errors) > 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(types.APIResponse{
 			Success: false,
-			Message: "Datos de entrada inválidos",
+			Message: "Errores de validación",
+			Data:    errors,
+			Error:   "VALIDATION_ERROR",
 		})
 	}
 
-	// 3. Usar contexto de Fiber
-	// 4. Autenticar usuario
+	// 3. Autenticar usuario usando contexto de Fiber
 	response, err := ac.authService.Login(c.Context(), &req)
 	if err != nil {
+		errorMsg := err.Error()
+
+		// Determinar código de status y tipo de error basado en el mensaje
+		if strings.Contains(errorMsg, "no ha sido verificado") {
+			return c.Status(fiber.StatusForbidden).JSON(types.APIResponse{
+				Success: false,
+				Message: errorMsg,
+				Error:   "EMAIL_NOT_VERIFIED",
+			})
+		}
+
+		if strings.Contains(errorMsg, "cuenta desactivada") {
+			return c.Status(fiber.StatusForbidden).JSON(types.APIResponse{
+				Success: false,
+				Message: errorMsg,
+				Error:   "ACCOUNT_DEACTIVATED",
+			})
+		}
+
+		// Para credenciales inválidas y otros errores
 		return c.Status(fiber.StatusUnauthorized).JSON(types.APIResponse{
 			Success: false,
 			Message: "Credenciales inválidas",
-			Error:   err.Error(),
+			Error:   "INVALID_CREDENTIALS",
 		})
 	}
 
-	// 5. Respuesta exitosa
-	return c.JSON(types.APIResponse{
+	// 4. Respuesta exitosa
+	return c.Status(fiber.StatusOK).JSON(types.APIResponse{
 		Success: true,
 		Message: "Autenticación exitosa",
 		Data:    response,

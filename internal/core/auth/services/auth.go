@@ -146,25 +146,41 @@ func (s *authService) Login(ctx context.Context, req *domain_auth.AuthLoginDto) 
 	// 1. Buscar usuario por email
 	user, err := s.userService.GetUserByEmail(ctx, req.Email)
 	if err != nil {
-		return nil, fmt.Errorf("invalid email or password")
+		// Usar mensaje genérico para prevenir enumeración de usuarios
+		return nil, fmt.Errorf("credenciales inválidas")
 	}
 
-	// 2. Check if user exists
+	// 2. Verificar que el usuario existe
 	if user == nil {
-		return nil, fmt.Errorf("invalid email or password")
+		return nil, fmt.Errorf("credenciales inválidas")
 	}
 
-	// 3. Check if user's email is verified
+	// 3. Verificar que el email esté verificado
 	if !user.EmailVerified {
-		return nil, fmt.Errorf("email %s is not verified", req.Email)
+		return nil, fmt.Errorf("el email no ha sido verificado. revisa tu bandeja de entrada")
 	}
 
-	// 4. Verify the password
+	// 4. Verificar que el usuario esté activo
+	if !user.IsActive {
+		return nil, fmt.Errorf("cuenta desactivada. contacta al administrador")
+	}
+
+	// 5. Verificar la contraseña
 	if err := s.passwordHasher.Verify(user.Password, req.Password); err != nil {
-		return nil, fmt.Errorf("invalid email or password")
+		return nil, fmt.Errorf("credenciales inválidas")
 	}
 
-	// 5. Generate JWT token with type "login" (before tenant selection)
+	// 6. Actualizar último login
+	now := time.Now()
+	user.LastLogin = &now
+	user.Updated = now
+
+	if err := s.userService.UpdateUser(ctx, user); err != nil {
+		// Log error pero continuar con el login
+		fmt.Printf("Error actualizando último login: %v\n", err)
+	}
+
+	// 7. Generar JWT token con type "login" (antes de seleccionar tenant)
 	claims := map[string]interface{}{
 		"user_id":    user.ID.String(),
 		"email":      user.Email,
@@ -173,31 +189,31 @@ func (s *authService) Login(ctx context.Context, req *domain_auth.AuthLoginDto) 
 		"is_active":  user.IsActive,
 		"type":       "login", // Tipo login antes de seleccionar tenant
 	}
-	
+
 	accessToken, err := s.tokenService.GenerateJWT(claims, 24*time.Hour)
 	if err != nil {
-		return nil, fmt.Errorf("error generating access token: %w", err)
+		return nil, fmt.Errorf("error generando token de acceso: %w", err)
 	}
 
-	// PASO 5: Generate refresh token for login (30 días de expiración)
+	// 8. Generar refresh token para login (30 días de expiración)
 	refreshToken, err := s.tokenService.GenerateRefreshToken(user.ID, uuid.Nil, 30*24*time.Hour)
 	if err != nil {
-		return nil, fmt.Errorf("error generating refresh token: %w", err)
+		return nil, fmt.Errorf("error generando refresh token: %w", err)
 	}
 
-	// 6. Preparar respuesta con refresh token - PASO 5
+	// 9. Preparar respuesta con tokens
 	resp := &domain_auth.AuthLoginResponse{
 		AccessToken:  accessToken,
-		RefreshToken: refreshToken,                    // ← AGREGADO PASO 5
-		ExpiresIn:    int64(24 * 60 * 60),           // ← AGREGADO PASO 5: 24 horas en segundos
-		TokenType:    "Bearer",                       // ← AGREGADO PASO 5
+		RefreshToken: refreshToken,
+		ExpiresIn:    int64(24 * 60 * 60), // 24 horas en segundos
+		TokenType:    "Bearer",
 		User: userDomain.User{
 			ID:        user.ID,
 			Username:  user.Username,
 			FullName:  user.FullName,
 			Email:     user.Email,
 			IsActive:  user.IsActive,
-			LastLogin: user.LastLogin,
+			LastLogin: user.LastLogin, // Ahora incluye el último login actualizado
 		},
 	}
 
