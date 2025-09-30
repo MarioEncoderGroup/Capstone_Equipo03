@@ -59,7 +59,7 @@ export default function Header() {
 
           {/* Action Buttons */}
           <div className="flex items-center space-x-4">
-            <Link href="/login" className="text-gray-700 hover:text-purple-600 transition-colors duration-200">
+            <Link href="/auth/login" className="text-gray-700 hover:text-purple-600 transition-colors duration-200">
               Iniciar sesión
             </Link>
             
