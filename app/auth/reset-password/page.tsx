@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import ResetPasswordHeader from './components/ResetPasswordHeader'
@@ -9,13 +9,13 @@ import SuccessMessage from './components/SuccessMessage'
 import { ResetPasswordService } from './utils/api'
 import type { ResetPasswordFormData } from './types'
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [mode, setMode] = useState<'request' | 'reset'>('request')
   const [email, setEmail] = useState('')
-  
+
   const searchParams = useSearchParams()
   const router = useRouter()
 
@@ -99,5 +99,26 @@ export default function ResetPasswordPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
+          <div className="max-w-md w-full bg-white py-8 px-6 shadow rounded-lg">
+            <div className="text-center">
+              <div className="inline-block animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600 mb-4" />
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                Cargando...
+              </h2>
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <ResetPasswordContent />
+    </Suspense>
   )
 }

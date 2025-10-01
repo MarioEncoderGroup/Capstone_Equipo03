@@ -6,8 +6,7 @@ import type { RegisterFormData, RegisterFormProps } from '../types'
 
 export default function RegisterForm({ onSubmit, isLoading }: RegisterFormProps) {
   const [formData, setFormData] = useState<RegisterFormData>({
-    firstname: '',
-    lastname: '',
+    full_name: '',
     email: '',
     phone: '',
     password: '',
@@ -19,21 +18,24 @@ export default function RegisterForm({ onSubmit, isLoading }: RegisterFormProps)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     // Basic validation
     const newErrors: Partial<RegisterFormData> = {}
-    if (!formData.firstname) newErrors.firstname = 'El nombre es requerido'
-    if (!formData.lastname) newErrors.lastname = 'El apellido es requerido'
+    if (!formData.full_name || formData.full_name.trim().length < 2) {
+      newErrors.full_name = 'El nombre completo es requerido (mínimo 2 caracteres)'
+    }
     if (!formData.email) newErrors.email = 'El email es requerido'
     if (!formData.phone) newErrors.phone = 'El teléfono es requerido'
-    if (!formData.password) newErrors.password = 'La contraseña es requerida'
+    if (!formData.password || formData.password.length < 8) {
+      newErrors.password = 'La contraseña es requerida (mínimo 8 caracteres)'
+    }
     if (!formData.password_confirm) newErrors.password_confirm = 'Confirma tu contraseña'
     if (formData.password !== formData.password_confirm) {
       newErrors.password_confirm = 'Las contraseñas no coinciden'
     }
-    
+
     setErrors(newErrors)
-    
+
     if (Object.keys(newErrors).length === 0) {
       await onSubmit(formData)
     }
@@ -48,44 +50,23 @@ export default function RegisterForm({ onSubmit, isLoading }: RegisterFormProps)
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label htmlFor="firstname" className="block text-sm font-medium text-gray-700 mb-2">
-            Nombre
-          </label>
-          <input
-            id="firstname"
-            type="text"
-            value={formData.firstname}
-            onChange={(e) => handleChange('firstname', e.target.value)}
-            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors ${
-              errors.firstname ? 'border-red-500' : 'border-gray-300'
-            }`}
-            placeholder="Tu nombre"
-          />
-          {errors.firstname && (
-            <p className="mt-1 text-sm text-red-600">{errors.firstname}</p>
-          )}
-        </div>
-
-        <div>
-          <label htmlFor="lastname" className="block text-sm font-medium text-gray-700 mb-2">
-            Apellido
-          </label>
-          <input
-            id="lastname"
-            type="text"
-            value={formData.lastname}
-            onChange={(e) => handleChange('lastname', e.target.value)}
-            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors ${
-              errors.lastname ? 'border-red-500' : 'border-gray-300'
-            }`}
-            placeholder="Tu apellido"
-          />
-          {errors.lastname && (
-            <p className="mt-1 text-sm text-red-600">{errors.lastname}</p>
-          )}
-        </div>
+      <div>
+        <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 mb-2">
+          Nombre Completo
+        </label>
+        <input
+          id="full_name"
+          type="text"
+          value={formData.full_name}
+          onChange={(e) => handleChange('full_name', e.target.value)}
+          className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors ${
+            errors.full_name ? 'border-red-500' : 'border-gray-300'
+          }`}
+          placeholder="Juan Pérez"
+        />
+        {errors.full_name && (
+          <p className="mt-1 text-sm text-red-600">{errors.full_name}</p>
+        )}
       </div>
 
       <div>

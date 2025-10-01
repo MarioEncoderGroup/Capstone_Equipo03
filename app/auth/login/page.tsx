@@ -1,61 +1,34 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import LoginHeader from './components/LoginHeader'
 import LoginForm from './components/LoginForm'
 import SocialLogin from './components/SocialLogin'
-import { AuthService } from './utils/api'
+import { useAuth } from '@/hooks/useAuth'
+import { Alert } from '@/components/ui/Alert'
 import type { LoginFormData } from './types'
 
-export default function LoginPage() {
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+function LoginContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const { login, isLoading, error, clearError } = useAuth()
+
+  const verified = searchParams.get('verified')
+
+  useEffect(() => {
+    // Limpiar error cuando se monta el componente
+    clearError()
+  }, [clearError])
 
   const handleLogin = async (data: LoginFormData) => {
-    setIsLoading(true)
-    setError(null)
-    
     try {
-      const result = await AuthService.login(data)
-      
-      if (result.success && result.token) {
-        // Check if user data exists
-        if (!result.user) {
-          setError('Error en los datos del usuario')
-          return
-        }
-        
-        // Check if user is active
-        if (!result.user.is_active) {
-          setError('Cuenta desactivada. Contacta al administrador')
-          return
-        }
-        
-        // Check if email is verified
-        if (!result.user.email_verified) {
-          setError('Tu email no ha sido verificado. Revisa tu bandeja de entrada y haz clic en el enlace de verificación.')
-          return
-        }
-        
-        // Save token and redirect
-        localStorage.setItem('auth_token', result.token)
-        if (result.refreshToken) {
-          localStorage.setItem('refresh_token', result.refreshToken)
-        }
-        if (result.user) {
-          localStorage.setItem('user_data', JSON.stringify(result.user))
-        }
-        router.push('/dashboard')
-      } else {
-        setError(result.error || 'Error al iniciar sesión')
-      }
+      // useAuth ya maneja todo el flujo: login → tenant status → redirect
+      await login(data)
     } catch (err) {
-      setError('Ha ocurrido un error inesperado')
-    } finally {
-      setIsLoading(false)
+      // El error ya está manejado por useAuth
+      console.error('Error en login:', err)
     }
   }
 
@@ -65,12 +38,22 @@ export default function LoginPage() {
         <LoginHeader />
         
         <div className="bg-white py-8 px-6 shadow rounded-lg">
-          {error && (
-            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-600">{error}</p>
+          {verified && (
+            <div className="mb-4">
+              <Alert variant="success">
+                ¡Email verificado exitosamente! Ahora puedes iniciar sesión.
+              </Alert>
             </div>
           )}
-          
+
+          {error && (
+            <div className="mb-4">
+              <Alert variant="error" onClose={clearError}>
+                {error}
+              </Alert>
+            </div>
+          )}
+
           <LoginForm onSubmit={handleLogin} isLoading={isLoading} />
           
           <div className="mt-6 flex items-center justify-between">
@@ -111,5 +94,26 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
+          <div className="max-w-md w-full bg-white py-8 px-6 shadow rounded-lg">
+            <div className="text-center">
+              <div className="inline-block animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600 mb-4" />
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                Cargando...
+              </h2>
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <LoginContent />
+    </Suspense>
   )
 }

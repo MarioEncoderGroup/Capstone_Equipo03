@@ -13,8 +13,7 @@ export class RegisterService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          firstname: data.firstname,
-          lastname: data.lastname,
+          full_name: data.full_name,
           email: data.email,
           phone: data.phone,
           password: data.password,

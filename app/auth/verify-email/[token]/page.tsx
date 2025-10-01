@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { CheckCircleIcon, XCircleIcon, ClockIcon } from '@heroicons/react/24/outline';
 
@@ -17,21 +17,31 @@ export default function VerifyEmailPage() {
   const router = useRouter();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
+  const hasVerifiedRef = useRef(false); // ✅ Prevenir doble ejecución
 
   const token = params.token as string;
 
   useEffect(() => {
+    // ✅ Evitar doble ejecución en React.StrictMode
+    if (hasVerifiedRef.current) {
+      console.log('⚠️ Verificación ya ejecutada, saltando...');
+      return;
+    }
+
     if (!token) {
       setStatus('error');
       setMessage('Token de verificación no válido');
       return;
     }
 
+    console.log('✅ Ejecutando verificación de email (primera y única vez)');
+    hasVerifiedRef.current = true; // ✅ Marcar como ejecutado ANTES de la petición
     verifyEmail();
   }, [token]);
 
   const verifyEmail = async () => {
     try {
+      console.log('🔄 Enviando petición POST /auth/verify-email');
       const response = await fetch(`${API_BASE_URL}/auth/verify-email`, {
         method: 'POST',
         headers: {
@@ -43,6 +53,7 @@ export default function VerifyEmailPage() {
       const data: VerificationResponse = await response.json();
 
       if (data.success) {
+        console.log('✅ Email verificado exitosamente');
         setStatus('success');
         setMessage('¡Email verificado exitosamente! Tu cuenta ha sido activada.');
         
@@ -51,13 +62,14 @@ export default function VerifyEmailPage() {
           router.push('/auth/login?verified=true');
         }, 3000);
       } else {
+        console.error('❌ Error en la verificación:', data.error || data.message);
         setStatus('error');
         setMessage(data.error || data.message || 'Error al verificar el email');
       }
     } catch (error) {
+      console.error('❌ Error de conexión:', error);
       setStatus('error');
       setMessage('Error de conexión. Inténtalo de nuevo más tarde.');
-      console.error('Error verifying email:', error);
     }
   };
 

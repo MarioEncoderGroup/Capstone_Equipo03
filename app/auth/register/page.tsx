@@ -5,35 +5,26 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import RegisterHeader from './components/RegisterHeader'
 import RegisterForm from './components/RegisterForm'
-import { RegisterService } from './utils/api'
+import { useAuth } from '@/hooks/useAuth'
+import { Alert } from '@/components/ui/Alert'
 import type { RegisterFormData } from './types'
 
 export default function RegisterPage() {
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+  const { register, isLoading, error, clearError } = useAuth()
+  const [emailToken, setEmailToken] = useState<string | null>(null)
 
   const handleRegister = async (data: RegisterFormData) => {
-    setIsLoading(true)
-    setError(null)
-    
     try {
-      const result = await RegisterService.register(data)
-      
-      if (result.success && result.token) {
-        // Save token and redirect
-        localStorage.setItem('auth_token', result.token)
-        if (result.user) {
-          localStorage.setItem('user_data', JSON.stringify(result.user))
-        }
-        router.push('/dashboard') // or wherever new users should go
-      } else {
-        setError(result.error || 'Error al crear la cuenta')
-      }
+      // El formulario ya envía full_name directamente
+      const token = await register(data)
+
+      // Guardar el email_token y redirigir a verificación
+      setEmailToken(token)
+      router.push(`/auth/verify-email?token=${token}`)
     } catch (err) {
-      setError('Ha ocurrido un error inesperado')
-    } finally {
-      setIsLoading(false)
+      // El error ya está manejado por useAuth
+      console.error('Error en registro:', err)
     }
   }
 
@@ -44,11 +35,13 @@ export default function RegisterPage() {
         
         <div className="bg-white py-8 px-6 shadow rounded-lg">
           {error && (
-            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-600">{error}</p>
+            <div className="mb-4">
+              <Alert variant="error" onClose={clearError}>
+                {error}
+              </Alert>
             </div>
           )}
-          
+
           <RegisterForm onSubmit={handleRegister} isLoading={isLoading} />
         </div>
 

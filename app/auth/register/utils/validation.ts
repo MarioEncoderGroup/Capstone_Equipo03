@@ -1,5 +1,6 @@
 // MisViáticos Register - Validation Utilities
 
+import { validatePhone } from '@/lib/utils/validators'
 import type { RegisterFormData, RegisterError, PasswordStrength } from '../types'
 
 export const validateEmail = (email: string): string | null => {
@@ -74,13 +75,11 @@ export const validateTermsAcceptance = (accepted: boolean): string | null => {
 
 export const validateRegisterForm = (data: RegisterFormData): Record<keyof RegisterFormData, string | null> => {
   return {
-    firstName: validateName(data.firstName, 'El nombre'),
-    lastName: validateName(data.lastName, 'El apellido'),
+    full_name: validateName(data.full_name, 'El nombre'),
     email: validateEmail(data.email),
+    phone: validatePhone(data.phone),
     password: validatePassword(data.password),
-    confirmPassword: validatePasswordConfirmation(data.password, data.confirmPassword),
-    company: null, // Optional field
-    acceptTerms: validateTermsAcceptance(data.acceptTerms)
+    password_confirm: validatePasswordConfirmation(data.password, data.password_confirm)
   }
 }
 

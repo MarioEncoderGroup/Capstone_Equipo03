@@ -75,8 +75,8 @@ export const validateResetPasswordForm = (
   
   return {
     email: null,
-    newPassword: validateNewPassword(data.newPassword),
-    confirmPassword: validatePasswordConfirmation(data.newPassword, data.confirmPassword),
+    new_password: validateNewPassword(data.new_password),
+    confirm_password: validatePasswordConfirmation(data.new_password, data.confirm_password),
     token: validateResetToken(data.token)
   }
 }

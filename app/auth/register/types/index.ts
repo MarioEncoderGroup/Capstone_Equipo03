@@ -1,8 +1,7 @@
 // MisViáticos Register - Type Definitions
 
 export interface RegisterFormData {
-  firstname: string;
-  lastname: string;
+  full_name: string;
   email: string;
   phone: string;
   password: string;
