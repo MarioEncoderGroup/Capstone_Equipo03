@@ -18,6 +18,8 @@ func PrivateRoutes(app *fiber.App, dbControl *postgresql.PostgresqlClient, tenan
 
 	// Tenant management routes
 	tenant := private.Group("/tenant")
+	tenant.Get("/status", tenantController.GetTenantStatus) // Verifica si usuario tiene tenants
+	tenant.Post("/create", tenantController.CreateTenant)    // Crea nuevo tenant
 	tenant.Get("/", tenantController.GetTenantsByUser)
 	tenant.Post("/select/:tenantId", tenantController.SelectTenant)
 	tenant.Get("/:tenantId/profile", tenantController.GetTenantProfile)

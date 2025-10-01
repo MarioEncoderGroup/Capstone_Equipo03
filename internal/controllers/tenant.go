@@ -9,6 +9,7 @@ import (
 	"github.com/JoseLuis21/mv-backend/internal/core/tenant/ports"
 	sharedErrors "github.com/JoseLuis21/mv-backend/internal/shared/errors"
 	"github.com/JoseLuis21/mv-backend/internal/shared/types"
+	"github.com/JoseLuis21/mv-backend/internal/shared/utils"
 	"github.com/JoseLuis21/mv-backend/internal/shared/validatorapi"
 	"github.com/google/uuid"
 )
@@ -30,10 +31,47 @@ func NewTenantController(tenantService ports.TenantService, authService authPort
 }
 
 
+// GetTenantStatus verifica si el usuario tiene tenants y retorna el estado
+func (tc *TenantController) GetTenantStatus(c *fiber.Ctx) error {
+	// 1. Obtener userID del contexto (middleware de autenticación)
+	userID, err := utils.GetUserIDFromContext(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(types.APIResponse{
+			Success: false,
+			Message: "Usuario no autenticado",
+			Error:   "UNAUTHORIZED",
+		})
+	}
+
+	// 2. Obtener tenants del usuario
+	tenants, err := tc.tenantService.GetTenantsByUser(c.Context(), userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(types.APIResponse{
+			Success: false,
+			Message: "Error obteniendo tenants",
+			Error:   err.Error(),
+		})
+	}
+
+	// 3. Construir respuesta con estado
+	hasTenants := len(tenants) > 0
+
+	return c.JSON(types.APIResponse{
+		Success: true,
+		Message: "Estado de tenants obtenido exitosamente",
+		Data: fiber.Map{
+			"has_tenants":              hasTenants,
+			"tenants":                  tenants,
+			"requires_tenant_creation": !hasTenants,
+			"tenant_count":             len(tenants),
+		},
+	})
+}
+
 // GetTenantsByUser obtiene todos los tenants del usuario autenticado
 func (tc *TenantController) GetTenantsByUser(c *fiber.Ctx) error {
 	// 1. Obtener userID del contexto (middleware de autenticación)
-	userID, err := getUserIDFromContext(c)
+	userID, err := utils.GetUserIDFromContext(c)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(types.APIResponse{
 			Success: false,
@@ -64,7 +102,7 @@ func (tc *TenantController) GetTenantsByUser(c *fiber.Ctx) error {
 // SelectTenant selecciona un tenant específico para el usuario
 func (tc *TenantController) SelectTenant(c *fiber.Ctx) error {
 	// 1. Obtener userID del contexto
-	userID, err := getUserIDFromContext(c)
+	userID, err := utils.GetUserIDFromContext(c)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(types.APIResponse{
 			Success: false,
@@ -229,6 +267,63 @@ func (tc *TenantController) UpdateTenantProfile(c *fiber.Ctx) error {
 	})
 }
 
+// CreateTenant crea un nuevo tenant y lo asocia al usuario autenticado
+func (tc *TenantController) CreateTenant(c *fiber.Ctx) error {
+	// 1. Obtener userID del contexto
+	userID, err := utils.GetUserIDFromContext(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(types.APIResponse{
+			Success: false,
+			Message: "Usuario no autenticado",
+			Error:   "UNAUTHORIZED",
+		})
+	}
+
+	// 2. Parsear datos del tenant
+	var dto tenantDomain.CreateTenantDTO
+	if err := c.BodyParser(&dto); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(types.APIResponse{
+			Success: false,
+			Message: "Error parseando datos",
+			Error:   "Formato de datos inválido",
+		})
+	}
+
+	// 3. Validar datos
+	if errors := tc.validator.ValidateStruct(dto); len(errors) > 0 {
+		var validationErrors []types.ValidationErrorResponse
+		for _, err := range errors {
+			validationErrors = append(validationErrors, types.ValidationErrorResponse{
+				Field:   err.Field,
+				Message: err.Message,
+			})
+		}
+
+		return c.Status(fiber.StatusBadRequest).JSON(types.APIResponse{
+			Success: false,
+			Message: "Errores de validación",
+			Data:    validationErrors,
+		})
+	}
+
+	// 4. Crear tenant usando el servicio
+	tenant, err := tc.tenantService.CreateTenantFromDTO(c.Context(), &dto, userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(types.APIResponse{
+			Success: false,
+			Message: "Error creando tenant",
+			Error:   err.Error(),
+		})
+	}
+
+	// 5. Respuesta exitosa
+	return c.Status(fiber.StatusCreated).JSON(types.APIResponse{
+		Success: true,
+		Message: "Tenant creado exitosamente",
+		Data:    tenant,
+	})
+}
+
 // HealthCheck endpoint de health check para el módulo de tenant
 func (tc *TenantController) HealthCheck(c *fiber.Ctx) error {
 	return c.JSON(types.APIResponse{
@@ -242,16 +337,3 @@ func (tc *TenantController) HealthCheck(c *fiber.Ctx) error {
 	})
 }
 
-// getUserIDFromContext obtiene el ID del usuario desde el contexto (helper function)
-// En un entorno real, esto vendría del middleware de autenticación
-func getUserIDFromContext(c *fiber.Ctx) (uuid.UUID, error) {
-	// Por ahora retornamos un UUID mock - esto debe ser implementado con el middleware de JWT
-	// userIDStr := c.Locals("userID")
-	// if userIDStr == nil {
-	//     return uuid.Nil, fmt.Errorf("user ID not found in context")
-	// }
-	// return uuid.Parse(userIDStr.(string))
-	
-	// Placeholder para desarrollo - debe ser reemplazado por la lógica real
-	return uuid.New(), nil
-}

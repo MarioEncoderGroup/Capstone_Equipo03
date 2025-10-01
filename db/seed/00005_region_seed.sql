@@ -1,6 +1,7 @@
 /* ===========
-   2.  REGIONES
+   2.  REGIONES DE CHILE
    =========== */
+-- Seed idempotente: puede ejecutarse múltiples veces sin errores
 
 INSERT INTO region (id, number, roman_number, name) VALUES
 ('AP', 15, 'XV' , 'Arica y Parinacota'),
@@ -18,4 +19,5 @@ INSERT INTO region (id, number, roman_number, name) VALUES
 ('LR', 14, 'XIV', 'Los Ríos'),
 ('LL', 10, 'X'  , 'Los Lagos'),
 ('AI', 11, 'XI' , 'Aisén del Gral. Carlos Ibáñez del Campo'),
-('MA', 12, 'XII', 'Magallanes y de la Antártica Chilena');
+('MA', 12, 'XII', 'Magallanes y de la Antártica Chilena')
+ON CONFLICT (id) DO NOTHING;

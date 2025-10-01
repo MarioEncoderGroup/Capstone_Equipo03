@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"log/slog"
 	"os"
 
@@ -27,26 +26,16 @@ func main() {
 	defer dbControl.Pool.Close()
 	slog.Info("✅ Control database connected")
 
-	// Initialize default tenant database connection
-	dbTenant, err := utils.GetDatabaseTenantDefault(context.Background(), "1")
-	if err != nil {
-		slog.Error("Failed to connect to tenant database", "error", err.Error())
-		os.Exit(1)
-	}
-	defer dbTenant.Pool.Close()
-	slog.Info("✅ Tenant database connected")
-
 	// Create server instance with MisViaticos configuration
 	host := utils.GetEnvOrDefault("HOST", "0.0.0.0")
 	port := utils.GetEnvOrDefault("PORT", "8080")
-	
-	serverApi := server.NewServer(host, port, dbControl, dbTenant)
-	
+
+	serverApi := server.NewServer(host, port, dbControl)
+
 	slog.Info("🌟 MisViaticos API starting", "host", host, "port", port)
-	
+
 	if err := serverApi.Start(); err != nil {
 		slog.Error("Failed to start MisViaticos server", "error", err)
 		os.Exit(1)
 	}
 }
-

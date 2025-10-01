@@ -6,13 +6,11 @@ import (
 )
 
 // User representa la entidad principal de usuario en el dominio
-// Mapea directamente con la tabla 'users' del control database
+// Mapea directamente con la tabla 'users' del control database (000001_create_user_table.up.sql)
 type User struct {
 	ID                     uuid.UUID  `json:"id"`
 	Username               string     `json:"username"`
-	FirstName              string     `json:"first_name"`
-	LastName               string     `json:"last_name"`
-	FullName               string     `json:"full_name"` // Calculado: FirstName + " " + LastName
+	FullName               string     `json:"full_name"`
 	Phone                  *string    `json:"phone"`
 	IdentificationNumber   *string    `json:"identification_number"` // RUT chileno
 	Email                  string     `json:"email"`
@@ -37,26 +35,21 @@ type User struct {
 // NewUser crea una nueva instancia de usuario con valores por defecto
 // Aplica reglas de negocio iniciales (usuario inactivo hasta verificar email)
 // Genera username automáticamente basado en el email
-func NewUser(firstName, lastName, email, phone, hashedPassword string) *User {
+func NewUser(fullName, email, phone, hashedPassword string) *User {
 	now := time.Now()
-	
+
 	// Generar username automáticamente del email (antes del @)
 	username := generateUsernameFromEmail(email)
-	
-	// Construir full name a partir de first name y last name
-	fullName := firstName + " " + lastName
-	
+
 	// Manejar phone como puntero (puede ser vacío)
 	var phonePtr *string
 	if phone != "" {
 		phonePtr = &phone
 	}
-	
+
 	return &User{
 		ID:            uuid.New(),
 		Username:      username,
-		FirstName:     firstName,
-		LastName:      lastName,
 		FullName:      fullName,
 		Phone:         phonePtr,
 		Email:         email,

@@ -5,20 +5,18 @@ import (
 	"github.com/google/uuid"
 )
 
-// CreateUserDto representa los datos necesarios para crear un usuario
+// CreateUserDto represents the data required to create a user
 type CreateUserDto struct {
-	FirstName            string  `json:"first_name" validate:"required,min=2,max=50"`
-	LastName             string  `json:"last_name" validate:"required,min=2,max=50"`
+	FullName             string  `json:"full_name" validate:"required,min=2,max=100"`
 	Email                string  `json:"email" validate:"required,email"`
 	Phone                *string `json:"phone,omitempty" validate:"omitempty,min=8,max=15"`
 	IdentificationNumber *string `json:"identification_number,omitempty" validate:"omitempty,min=10,max=12"`
 	Password             string  `json:"password" validate:"required,min=8,max=128"`
 }
 
-// UpdateUserDto representa los datos para actualizar un usuario
+// UpdateUserDto represents the data to update a user
 type UpdateUserDto struct {
-	FirstName            *string `json:"first_name,omitempty" validate:"omitempty,min=2,max=50"`
-	LastName             *string `json:"last_name,omitempty" validate:"omitempty,min=2,max=50"`
+	FullName             *string `json:"full_name,omitempty" validate:"omitempty,min=2,max=100"`
 	Phone                *string `json:"phone,omitempty" validate:"omitempty,min=8,max=15"`
 	IdentificationNumber *string `json:"identification_number,omitempty" validate:"omitempty,min=10,max=12"`
 	BankID               *string `json:"bank_id,omitempty" validate:"omitempty,uuid"`
@@ -28,7 +26,7 @@ type UpdateUserDto struct {
 	IsActive             *bool   `json:"is_active,omitempty"`
 }
 
-// UserResponseDto representa la respuesta con información del usuario (sin campos sensibles)
+// UserResponseDto represents the response with user information (without sensitive fields)
 type UserResponseDto struct {
 	ID                   uuid.UUID  `json:"id"`
 	Username             string     `json:"username"`
@@ -59,17 +57,16 @@ type UserListResponseDto struct {
 	Created       time.Time  `json:"created"`
 }
 
-// ChangePasswordDto representa los datos para cambiar contraseña
+// ChangePasswordDto represents the data to change password
 type ChangePasswordDto struct {
 	CurrentPassword string `json:"current_password" validate:"required"`
 	NewPassword     string `json:"new_password" validate:"required,min=8,max=128"`
 	ConfirmPassword string `json:"confirm_password" validate:"required,eqfield=NewPassword"`
 }
 
-// UpdateProfileDto representa los datos para actualizar el perfil del usuario autenticado
+// UpdateProfileDto represents the data to update the authenticated user's profile
 type UpdateProfileDto struct {
-	FirstName            *string `json:"first_name,omitempty" validate:"omitempty,min=2,max=50"`
-	LastName             *string `json:"last_name,omitempty" validate:"omitempty,min=2,max=50"`
+	FullName             *string `json:"full_name,omitempty" validate:"omitempty,min=2,max=100"`
 	Phone                *string `json:"phone,omitempty" validate:"omitempty,min=8,max=15"`
 	IdentificationNumber *string `json:"identification_number,omitempty" validate:"omitempty,min=10,max=12"`
 	BankID               *string `json:"bank_id,omitempty" validate:"omitempty,uuid"`
@@ -78,7 +75,7 @@ type UpdateProfileDto struct {
 	ImageURL             *string `json:"image_url,omitempty" validate:"omitempty,url"`
 }
 
-// ToUserResponseDto convierte un User en UserResponseDto (sin campos sensibles)
+// ToUserResponseDto converts a User to UserResponseDto (without sensitive fields)
 func (u *User) ToUserResponseDto() *UserResponseDto {
 	return &UserResponseDto{
 		ID:                   u.ID,

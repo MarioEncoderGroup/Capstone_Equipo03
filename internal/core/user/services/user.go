@@ -108,13 +108,11 @@ func (s *userService) CreateUserFromDto(ctx context.Context, dto *domain.CreateU
 	}
 
 	// Crear entidad User
-	user := domain.NewUser(dto.FirstName, dto.LastName, dto.Email,
-		func() string {
-			if dto.Phone != nil {
-				return *dto.Phone
-			}
-			return ""
-		}(), hashedPassword)
+	phone := ""
+	if dto.Phone != nil {
+		phone = *dto.Phone
+	}
+	user := domain.NewUser(dto.FullName, dto.Email, phone, hashedPassword)
 
 	// Asignar campos opcionales
 	if dto.IdentificationNumber != nil {
@@ -138,13 +136,8 @@ func (s *userService) UpdateUserFromDto(ctx context.Context, id uuid.UUID, dto *
 	}
 
 	// Actualizar campos si se proporcionan
-	if dto.FirstName != nil {
-		user.FirstName = *dto.FirstName
-		user.FullName = *dto.FirstName + " " + user.LastName
-	}
-	if dto.LastName != nil {
-		user.LastName = *dto.LastName
-		user.FullName = user.FirstName + " " + *dto.LastName
+	if dto.FullName != nil {
+		user.FullName = *dto.FullName
 	}
 	if dto.Phone != nil {
 		user.Phone = dto.Phone
@@ -221,13 +214,8 @@ func (s *userService) UpdateUserProfile(ctx context.Context, id uuid.UUID, dto *
 	}
 
 	// Actualizar campos de perfil si se proporcionan
-	if dto.FirstName != nil {
-		user.FirstName = *dto.FirstName
-		user.FullName = *dto.FirstName + " " + user.LastName
-	}
-	if dto.LastName != nil {
-		user.LastName = *dto.LastName
-		user.FullName = user.FirstName + " " + *dto.LastName
+	if dto.FullName != nil {
+		user.FullName = *dto.FullName
 	}
 	if dto.Phone != nil {
 		user.Phone = dto.Phone
@@ -260,4 +248,12 @@ func (s *userService) UpdateUserProfile(ctx context.Context, id uuid.UUID, dto *
 	}
 
 	return user, nil
+}
+
+// SaveRefreshToken guarda un refresh token para un usuario
+func (s *userService) SaveRefreshToken(ctx context.Context, userID uuid.UUID, refreshToken string, expiresIn int64) error {
+	// TODO: Implementar guardado de refresh token en tabla user_refresh_tokens
+	// Por ahora, solo retornamos nil para que compile
+	// En producción, esto debe guardar el token en la base de datos
+	return nil
 }

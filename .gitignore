@@ -72,3 +72,4 @@ local_config.yml
 mv-architecture-agent.md
 *-agent.md
 *-architecture.md
+*.md

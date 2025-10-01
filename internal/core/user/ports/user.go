@@ -108,7 +108,6 @@ type UserService interface {
 	// CreateUserFromDto crea un usuario desde un DTO con validaciones
 	CreateUserFromDto(ctx context.Context, dto *domain.CreateUserDto) (*domain.User, error)
 
-	// UpdateUserFromDto actualiza un usuario desde un DTO con validaciones
 	UpdateUserFromDto(ctx context.Context, id uuid.UUID, dto *domain.UpdateUserDto) (*domain.User, error)
 
 	// ChangeUserPassword cambia la contraseña de un usuario con validaciones
@@ -116,4 +115,7 @@ type UserService interface {
 
 	// UpdateUserProfile actualiza el perfil de un usuario autenticado
 	UpdateUserProfile(ctx context.Context, id uuid.UUID, dto *domain.UpdateProfileDto) (*domain.User, error)
+
+	// SaveRefreshToken guarda un refresh token para un usuario
+	SaveRefreshToken(ctx context.Context, userID uuid.UUID, refreshToken string, expiresIn int64) error
 }
