@@ -4,17 +4,18 @@
 import { useState, useEffect } from 'react'
 import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
 import { RoleService } from '@/services/roleService'
+import { PermissionService } from '@/services/permissionService'
 import { UserService } from '@/services/userService'
 import { Button } from '@/components/ui/Button'
 import { Alert } from '@/components/ui/Alert'
 import { DeleteConfirmModal } from '@/components/shared/DeleteConfirmModal'
 import { RoleModal } from './components/RoleModal'
-import type { Role, Permission } from '@/types'
+import type { Role, GroupedPermission } from '@/types'
 import type { User } from '@/app/dashboard/users/types'
 
 export default function RolesPage() {
   const [roles, setRoles] = useState<Role[]>([])
-  const [permissions, setPermissions] = useState<Permission[]>([])
+  const [groupedPermissions, setGroupedPermissions] = useState<GroupedPermission[]>([])
   const [users, setUsers] = useState<User[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -34,16 +35,21 @@ export default function RolesPage() {
     setError(null)
 
     try {
-      const [rolesData, permissionsData, usersData] = await Promise.all([
+      console.log('🔄 Cargando roles, permisos agrupados y usuarios...')
+      
+      const [rolesData, groupedPermsData, usersData] = await Promise.all([
         RoleService.getAll(),
-        RoleService.getAllPermissions(),
+        PermissionService.getGrouped(),
         UserService.getAll(),
       ])
 
       setRoles(rolesData)
-      setPermissions(permissionsData)
+      setGroupedPermissions(groupedPermsData)
       setUsers(usersData)
+      console.log('✅ Datos cargados exitosamente')
+      console.log('📊 Permisos agrupados:', groupedPermsData.length, 'secciones')
     } catch (err) {
+      console.error('❌ Error cargando datos:', err)
       setError(err instanceof Error ? err.message : 'Error al cargar datos')
     } finally {
       setIsLoading(false)
@@ -150,10 +156,10 @@ export default function RolesPage() {
             {/* Permissions */}
             <div className="border-t pt-4">
               <h4 className="text-sm font-medium text-gray-700 mb-2">
-                Permisos ({role.permissions.length})
+                Permisos ({role.permissions?.length || 0})
               </h4>
               <div className="flex flex-wrap gap-2">
-                {role.permissions.slice(0, 3).map((permission) => (
+                {role.permissions?.slice(0, 3).map((permission) => (
                   <span
                     key={permission.id}
                     className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800"
@@ -161,7 +167,7 @@ export default function RolesPage() {
                     {permission.name}
                   </span>
                 ))}
-                {role.permissions.length > 3 && (
+                {role.permissions && role.permissions.length > 3 && (
                   <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
                     +{role.permissions.length - 3} más
                   </span>
@@ -182,7 +188,7 @@ export default function RolesPage() {
       {isModalOpen && (
         <RoleModal
           role={selectedRole}
-          permissions={permissions}
+          groupedPermissions={groupedPermissions}
           users={users}
           onClose={handleModalClose}
         />

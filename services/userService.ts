@@ -14,10 +14,13 @@ export class UserService {
 
   /**
    * Get all users
+   * Backend returns: { success, message, data: User[], pagination }
    */
   static async getAll(): Promise<User[]> {
-    const result = await HttpClient.get<UsersResponse>(`/admin${this.ENDPOINT}`)
-    return result.data?.users || []
+    const result = await HttpClient.get<User[]>(`/admin${this.ENDPOINT}`)
+    console.log('👥 UserService.getAll() response:', result)
+    // El backend devuelve el array directamente en data
+    return result.data || []
   }
 
   /**
@@ -62,6 +65,25 @@ export class UserService {
     const result = await HttpClient.put<User>(`/admin${this.ENDPOINT}/${id}`, sanitizedData)
     if (!result.data) throw new Error('Error al actualizar usuario')
     return result.data
+  }
+
+  /**
+   * Assign a single role to a user
+   */
+  static async assignRole(userId: string, roleId: string): Promise<void> {
+    await HttpClient.post<void>(`/user-roles/assign`, {
+      user_id: userId,
+      role_id: roleId,
+    })
+  }
+
+  /**
+   * Assign multiple roles to a user (using Promise.all for parallel execution)
+   */
+  static async assignRoles(userId: string, roleIds: string[]): Promise<void> {
+    if (roleIds.length === 0) return
+
+    await Promise.all(roleIds.map((roleId) => this.assignRole(userId, roleId)))
   }
 
   /**

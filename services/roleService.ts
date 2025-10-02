@@ -7,20 +7,23 @@ import type {
   CreateRoleRequest,
   UpdateRoleRequest,
   RolesResponse,
-  Permission,
-  PermissionsResponse,
+  SyncPermissionsRequest,
 } from '@/types'
 
 export class RoleService {
   private static readonly ENDPOINT = '/roles'
-  private static readonly PERMISSIONS_ENDPOINT = '/permissions'
 
   /**
-   * Get all roles
+   * Get all roles with pagination
+   * Backend returns: { success, message, data: Role[], pagination }
    */
-  static async getAll(): Promise<Role[]> {
-    const result = await HttpClient.get<RolesResponse>(this.ENDPOINT)
-    return result.data?.roles || []
+  static async getAll(limit: number = 100, page: number = 1): Promise<Role[]> {
+    const result = await HttpClient.get<Role[]>(
+      `${this.ENDPOINT}?limit=${limit}&page=${page}`
+    )
+    console.log('🎭 RoleService.getAll() response:', result)
+    // El backend devuelve el array directamente en data
+    return result.data || []
   }
 
   /**
@@ -62,12 +65,13 @@ export class RoleService {
   }
 
   /**
-   * Sync role permissions (replace all permissions)
+   * Sync role permissions (replace all permissions) - SINGLE CALL
    */
   static async syncPermissions(roleId: string, permissionIds: string[]): Promise<void> {
-    await HttpClient.put<void>(`/role-permissions/roles/${roleId}/sync`, {
+    const payload: SyncPermissionsRequest = {
       permission_ids: permissionIds,
-    })
+    }
+    await HttpClient.put<void>(`/role-permissions/roles/${roleId}/sync`, payload)
   }
 
   /**
@@ -91,13 +95,5 @@ export class RoleService {
     const result = await HttpClient.post<Role>(`${this.ENDPOINT}/${id}/restore`)
     if (!result.data) throw new Error('Error al restaurar rol')
     return result.data
-  }
-
-  /**
-   * Get all permissions
-   */
-  static async getAllPermissions(): Promise<Permission[]> {
-    const result = await HttpClient.get<PermissionsResponse>(this.PERMISSIONS_ENDPOINT)
-    return result.data?.permissions || []
   }
 }

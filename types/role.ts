@@ -6,27 +6,36 @@ export interface Role {
   id: string
   name: string
   description: string
-  tenant_id: string
-  permissions: Permission[]
-  created_at?: string
-  updated_at?: string
+  tenant_id: string | null
+  permissions?: Permission[]
+  created?: string
+  updated?: string
   deleted_at?: string | null
 }
 
 export interface CreateRoleRequest {
   name: string
   description: string
-  permission_ids: string[]
+  permission_ids?: string[]
 }
 
 export interface UpdateRoleRequest {
   name?: string
   description?: string
-  permission_ids?: string[]
-  user_ids?: string[]
 }
 
 export interface RolesResponse {
   roles: Role[]
-  total: number
+  pagination?: {
+    page: number
+    page_size: number
+    total_pages: number
+    total_records: number
+    has_next: boolean
+    has_previous: boolean
+  }
+}
+
+export interface SyncPermissionsRequest {
+  permission_ids: string[]
 }

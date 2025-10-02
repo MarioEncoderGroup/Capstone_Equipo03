@@ -9,11 +9,11 @@ export interface User {
   id: string
   full_name: string
   email: string
-  phone: string
+  phone?: string
   is_active: boolean
-  tenant_id: string
-  roles: Role[]
-  permissions: Permission[]
+  tenant_id?: string
+  roles?: Role[]
+  permissions?: Permission[]
   last_login?: string
   created_at?: string
   updated_at?: string

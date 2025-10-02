@@ -5,17 +5,18 @@ import { useState, useEffect, useRef } from 'react'
 import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
 import { UserService } from '@/services/userService'
 import { RoleService } from '@/services/roleService'
+import { PermissionService } from '@/services/permissionService'
 import { Button } from '@/components/ui/Button'
 import { Alert } from '@/components/ui/Alert'
 import { DeleteConfirmModal } from '@/components/shared/DeleteConfirmModal'
 import { UserModal } from './components/UserModal'
-import type { Role, Permission } from '@/types'
+import { Role, GroupedPermission } from '@/types'
 import type { User } from './types'
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([])
   const [roles, setRoles] = useState<Role[]>([])
-  const [permissions, setPermissions] = useState<Permission[]>([])
+  const [groupedPermissions, setGroupedPermissions] = useState<GroupedPermission[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -61,16 +62,17 @@ export default function UsersPage() {
     try {
       console.log('🔄 Cargando datos de usuarios, roles y permisos...')
       
-      const [usersData, rolesData, permissionsData] = await Promise.all([
+      const [usersData, rolesData, groupedPermsData] = await Promise.all([
         UserService.getAll(),
         RoleService.getAll(),
-        RoleService.getAllPermissions(),
+        PermissionService.getGrouped(),
       ])
 
       setUsers(usersData)
       setRoles(rolesData)
-      setPermissions(permissionsData)
+      setGroupedPermissions(groupedPermsData)
       console.log('✅ Datos cargados exitosamente')
+      console.log('📊 Permisos agrupados:', groupedPermsData.length, 'secciones')
     } catch (err) {
       // Ignorar errores de abort
       if (err instanceof Error && err.name === 'AbortError') {
@@ -191,18 +193,22 @@ export default function UsersPage() {
                   <div className="text-sm text-gray-500">{user.email}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-500">{user.phone}</div>
+                  <div className="text-sm text-gray-500">{user.phone || '-'}</div>
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex flex-wrap gap-1">
-                    {user.roles.map((role) => (
-                      <span
-                        key={role.id}
-                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800"
-                      >
-                        {role.name}
-                      </span>
-                    ))}
+                    {user.roles && user.roles.length > 0 ? (
+                      user.roles.map((role) => (
+                        <span
+                          key={role.id}
+                          className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800"
+                        >
+                          {role.name}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-sm text-gray-400 italic">Sin roles</span>
+                    )}
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
@@ -247,7 +253,7 @@ export default function UsersPage() {
         <UserModal
           user={selectedUser}
           roles={roles}
-          permissions={permissions}
+          groupedPermissions={groupedPermissions}
           onClose={handleModalClose}
         />
       )}

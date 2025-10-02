@@ -7,25 +7,25 @@ import { RoleService } from '@/services/roleService'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Alert } from '@/components/ui/Alert'
-import type { Role, Permission } from '@/types'
+import type { Role, GroupedPermission } from '@/types'
 import type { User } from '@/app/dashboard/users/types'
 import type { RoleFormData } from '../types'
 import { validateRoleForm } from '../utils/validation'
 
 interface RoleModalProps {
   role: Role | null
-  permissions: Permission[]
+  groupedPermissions: GroupedPermission[]
   users: User[]
   onClose: (success: boolean) => void
 }
 
-export function RoleModal({ role, permissions, users, onClose }: RoleModalProps) {
+export function RoleModal({ role, groupedPermissions, users, onClose }: RoleModalProps) {
   const isEdit = !!role
 
   const [formData, setFormData] = useState<RoleFormData>({
     name: role?.name || '',
     description: role?.description || '',
-    permission_ids: role?.permissions.map(p => p.id) || [],
+    permission_ids: role?.permissions?.map(p => p.id) || [],
     user_ids: [],
   })
 
@@ -154,32 +154,46 @@ export function RoleModal({ role, permissions, users, onClose }: RoleModalProps)
             </div>
           </div>
 
-          {/* Permissions */}
+          {/* Permissions - Grouped by Section */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-3">
-              Permisos
+              Permisos ({formData.permission_ids.length} seleccionados)
             </label>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-60 overflow-y-auto p-4 border rounded-lg">
-              {permissions.map((permission) => (
-                <label
-                  key={permission.id}
-                  className="flex items-center space-x-2 p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
-                >
-                  <input
-                    type="checkbox"
-                    checked={formData.permission_ids.includes(permission.id)}
-                    onChange={() => togglePermission(permission.id)}
-                    className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                  />
-                  <div>
-                    <span className="text-sm font-medium text-gray-900">{permission.name}</span>
-                    <p className="text-xs text-gray-500">{permission.resource} - {permission.action}</p>
+            <div className="max-h-96 overflow-y-auto p-4 border rounded-lg space-y-6">
+              {groupedPermissions.map((group) => (
+                <div key={group.section} className="space-y-3">
+                  {/* Section Header */}
+                  <h4 className="text-sm font-semibold text-gray-900 capitalize border-b pb-2">
+                    {group.section}
+                  </h4>
+                  
+                  {/* Permissions in this section */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {group.permissions.map((permission) => (
+                      <label
+                        key={permission.id}
+                        className="flex items-start space-x-3 p-3 border rounded-lg cursor-pointer hover:bg-purple-50 transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={formData.permission_ids.includes(permission.id)}
+                          onChange={() => togglePermission(permission.id)}
+                          className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-medium text-gray-900 block">
+                            {permission.name}
+                          </span>
+                          <p className="text-xs text-gray-500 mt-0.5">{permission.description}</p>
+                        </div>
+                      </label>
+                    ))}
                   </div>
-                </label>
+                </div>
               ))}
             </div>
             {formData.permission_ids.length === 0 && (
-              <p className="mt-2 text-sm text-gray-500">Selecciona al menos un permiso</p>
+              <p className="mt-2 text-sm text-yellow-600">⚠️ Se recomienda seleccionar al menos un permiso</p>
             )}
           </div>
 
