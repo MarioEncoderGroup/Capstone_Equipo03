@@ -143,6 +143,8 @@ export interface JWTPayload {
   user_id: string
   tenant_id?: string
   type: 'access' | 'refresh'
+  roles?: string[]
+  permissions?: string[]
   iat: number
   exp: number
   iss: string
