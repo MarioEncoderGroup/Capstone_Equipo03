@@ -16,12 +16,15 @@ export interface RegisterFormProps {
 export interface RegisterResponse {
   success: boolean;
   token?: string;
+  refreshToken?: string;
+  expiresIn?: number;
   user?: {
     id: string;
     email: string;
-    firstname: string;
-    lastname: string;
+    full_name: string;
     phone: string;
+    email_token?: string;
+    requires_email_verification?: boolean;
   };
   error?: string;
 }

@@ -8,6 +8,7 @@ import { useRegions } from '@/hooks/useRegions'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Alert } from '@/components/ui/Alert'
+import TenantBenefitsSection from './components/TenantBenefitsSection'
 import { useFormField } from '@/hooks/useFormField'
 import {
   validateEmail,
@@ -40,7 +41,20 @@ export default function CreateTenantPage() {
     validateRequired(value, 'Razón social')
   )
   const email = useFormField<string>('', validateEmail)
-  const phone = useFormField<string>('', validatePhone)
+  const phone = useFormField<string>('+56 ', validatePhone)
+
+  const handlePhoneChange = (value: string) => {
+    // Ensure the phone always starts with +56 
+    if (!value.startsWith('+56 ')) {
+      value = '+56 '
+    }
+    
+    // Only allow numbers after +56 and spaces
+    const phonePattern = /^\+56 [0-9\s]*$/
+    if (phonePattern.test(value) || value === '+56 ') {
+      phone.setValue(value)
+    }
+  }
   const address = useFormField<string>('', (value) =>
     validateRequired(value, 'Dirección')
   )
@@ -98,19 +112,29 @@ export default function CreateTenantPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-2xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Crea tu Empresa
-          </h1>
-          <p className="text-gray-600">
-            Ingresa los datos de tu empresa para comenzar a gestionar tus
-            viáticos
-          </p>
-        </div>
+    <div className="min-h-screen bg-white flex flex-col lg:flex-row">
+      {/* Left side - Create Tenant Form */}
+      <div className="flex-1 lg:flex-none lg:w-1/2 flex items-center justify-center px-4 sm:px-6 lg:px-20 xl:px-24 py-12 lg:py-0">
+        <div className="w-full max-w-lg">
+          <div className="mb-8">
+            <Link href="/dashboard" className="inline-block">
+              <img 
+                src="/icon-mv/Assets MV_Logo2.svg" 
+                alt="MisViáticos" 
+                className="h-32 w-auto"
+              />
+            </Link>
+          </div>
 
-        <div className="bg-white py-8 px-6 shadow rounded-lg">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Crea tu Empresa
+            </h1>
+            <p className="text-gray-600 text-sm">
+              Ingresa los datos de tu empresa para comenzar a gestionar tus viáticos
+            </p>
+          </div>
+
           {error && (
             <div className="mb-6">
               <Alert variant="error" onClose={clearError}>
@@ -127,7 +151,7 @@ export default function CreateTenantPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <Input
               label="RUT de la Empresa"
               type="text"
@@ -161,7 +185,7 @@ export default function CreateTenantPage() {
               type="tel"
               placeholder="+56 9 1234 5678"
               value={phone.value}
-              onChange={(e) => phone.setValue(e.target.value)}
+              onChange={(e) => handlePhoneChange(e.target.value)}
               error={phone.error}
             />
 
@@ -184,7 +208,7 @@ export default function CreateTenantPage() {
               helperText="Debe comenzar con http:// o https://"
             />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Región *
@@ -197,7 +221,7 @@ export default function CreateTenantPage() {
                   <select
                     value={selectedRegionId}
                     onChange={(e) => setSelectedRegionId(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors text-gray-900"
                     required
                   >
                     <option value="">Seleccione una región</option>
@@ -223,7 +247,7 @@ export default function CreateTenantPage() {
                     value={selectedCommuneId}
                     onChange={(e) => setSelectedCommuneId(e.target.value)}
                     disabled={!selectedRegionId || communes.length === 0}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed"
                     required
                   >
                     <option value="">
@@ -247,27 +271,29 @@ export default function CreateTenantPage() {
             </div>
 
             <div className="pt-4">
-              <Button
+              <button
                 type="submit"
-                variant="primary"
-                fullWidth
-                isLoading={isLoading}
+                disabled={isLoading}
+                className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center"
               >
-                Crear Empresa
-              </Button>
+                {isLoading ? 'Creando Empresa...' : 'Crear Empresa'}
+              </button>
             </div>
           </form>
 
           <div className="mt-6 text-center">
             <Link
               href="/auth/login"
-              className="text-sm text-purple-600 hover:text-purple-700"
+              className="text-sm text-purple-600 hover:text-purple-700 font-medium"
             >
               ← Volver al login
             </Link>
           </div>
         </div>
       </div>
+
+      {/* Right side - Benefits */}
+      <TenantBenefitsSection />
     </div>
   )
 }

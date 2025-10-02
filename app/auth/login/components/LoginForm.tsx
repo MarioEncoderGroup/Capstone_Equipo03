@@ -45,7 +45,7 @@ export default function LoginForm({ onSubmit, isLoading }: LoginFormProps) {
           type="email"
           value={formData.email}
           onChange={(e) => handleChange('email', e.target.value)}
-          className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors ${
+          className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors text-gray-900 placeholder-gray-400 ${
             errors.email ? 'border-red-500' : 'border-gray-300'
           }`}
           placeholder="tu@email.com"
@@ -65,7 +65,7 @@ export default function LoginForm({ onSubmit, isLoading }: LoginFormProps) {
             type={showPassword ? 'text' : 'password'}
             value={formData.password}
             onChange={(e) => handleChange('password', e.target.value)}
-            className={`w-full px-4 py-3 pr-12 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors ${
+            className={`w-full px-4 py-3 pr-12 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors text-gray-900 placeholder-gray-400 ${
               errors.password ? 'border-red-500' : 'border-gray-300'
             }`}
             placeholder="Tu contraseña"

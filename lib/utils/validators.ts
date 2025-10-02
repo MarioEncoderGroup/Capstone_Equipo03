@@ -68,8 +68,8 @@ export const validateFullName = (name: string): string | null => {
  * Valida teléfono chileno (+56912345678 o 912345678)
  */
 export const validatePhone = (phone: string): string | null => {
-  if (!phone) {
-    return 'El teléfono es requerido'
+  if (!phone || phone.length < 8) {
+    return 'El teléfono debe tener al menos 8 dígitos (ej: +56 9 1234 5678)'
   }
 
   // Permitir formato +56912345678 o 912345678
@@ -77,7 +77,7 @@ export const validatePhone = (phone: string): string | null => {
   const cleanPhone = phone.replace(/\s|-/g, '')
 
   if (!phoneRegex.test(cleanPhone)) {
-    return 'Ingresa un teléfono válido (ej: +56912345678)'
+    return 'Ingresa un teléfono válido (ej: +56 9 1234 5678)'
   }
 
   return null
@@ -144,17 +144,34 @@ export const validateRequired = (
  */
 export const validateWebsite = (url: string): string | null => {
   if (!url) {
-    return 'El sitio web es requerido'
+    return null // Sitio web es opcional
+  }
+
+  if (url.trim().length === 0) {
+    return null // Permitir campo vacío
+  }
+
+  // Si no comienza con protocolo, sugerir formato correcto
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    return 'La URL debe comenzar con https:// (ej: https://miempresa.cl)'
   }
 
   try {
     const urlObj = new URL(url)
-    if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
-      return 'La URL debe comenzar con http:// o https://'
+    
+    // Validar que tenga un dominio válido
+    if (urlObj.hostname.length < 3 || !urlObj.hostname.includes('.')) {
+      return 'Ingresa un dominio válido como https://miempresa.cl'
     }
+    
+    // Verificar que no sea solo el protocolo
+    if (url === 'http://' || url === 'https://') {
+      return 'Completa la URL con tu dominio (ej: https://miempresa.cl)'
+    }
+    
     return null
   } catch {
-    return 'Ingresa una URL válida (ej: https://ejemplo.cl)'
+    return 'URL inválida. Formato correcto: https://miempresa.cl'
   }
 }
 

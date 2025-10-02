@@ -8,7 +8,7 @@ export default function RegisterForm({ onSubmit, isLoading }: RegisterFormProps)
   const [formData, setFormData] = useState<RegisterFormData>({
     full_name: '',
     email: '',
-    phone: '',
+    phone: '+56 ',
     password: '',
     password_confirm: ''
   })
@@ -25,7 +25,9 @@ export default function RegisterForm({ onSubmit, isLoading }: RegisterFormProps)
       newErrors.full_name = 'El nombre completo es requerido (mínimo 2 caracteres)'
     }
     if (!formData.email) newErrors.email = 'El email es requerido'
-    if (!formData.phone) newErrors.phone = 'El teléfono es requerido'
+    if (!formData.phone || formData.phone.length < 8) {
+      newErrors.phone = 'El teléfono debe tener al menos 8 dígitos (ej: +56 9 1234 5678)'
+    }
     if (!formData.password || formData.password.length < 8) {
       newErrors.password = 'La contraseña es requerida (mínimo 8 caracteres)'
     }
@@ -48,6 +50,22 @@ export default function RegisterForm({ onSubmit, isLoading }: RegisterFormProps)
     }
   }
 
+  const handlePhoneChange = (value: string) => {
+    // Ensure the phone always starts with +56 
+    if (!value.startsWith('+56 ')) {
+      value = '+56 '
+    }
+    
+    // Only allow numbers after +56 and spaces
+    const phonePattern = /^\+56 [0-9\s]*$/
+    if (phonePattern.test(value) || value === '+56 ') {
+      setFormData(prev => ({ ...prev, phone: value }))
+      if (errors.phone) {
+        setErrors(prev => ({ ...prev, phone: undefined }))
+      }
+    }
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
@@ -59,7 +77,7 @@ export default function RegisterForm({ onSubmit, isLoading }: RegisterFormProps)
           type="text"
           value={formData.full_name}
           onChange={(e) => handleChange('full_name', e.target.value)}
-          className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors ${
+          className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors text-gray-900 placeholder-gray-400 ${
             errors.full_name ? 'border-red-500' : 'border-gray-300'
           }`}
           placeholder="Juan Pérez"
@@ -78,7 +96,7 @@ export default function RegisterForm({ onSubmit, isLoading }: RegisterFormProps)
           type="email"
           value={formData.email}
           onChange={(e) => handleChange('email', e.target.value)}
-          className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors ${
+          className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors text-gray-900 placeholder-gray-400 ${
             errors.email ? 'border-red-500' : 'border-gray-300'
           }`}
           placeholder="tu@email.com"
@@ -96,8 +114,8 @@ export default function RegisterForm({ onSubmit, isLoading }: RegisterFormProps)
           id="phone"
           type="tel"
           value={formData.phone}
-          onChange={(e) => handleChange('phone', e.target.value)}
-          className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors ${
+          onChange={(e) => handlePhoneChange(e.target.value)}
+          className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors text-gray-900 placeholder-gray-400 ${
             errors.phone ? 'border-red-500' : 'border-gray-300'
           }`}
           placeholder="+56 9 1234 5678"
@@ -117,7 +135,7 @@ export default function RegisterForm({ onSubmit, isLoading }: RegisterFormProps)
             type={showPassword ? 'text' : 'password'}
             value={formData.password}
             onChange={(e) => handleChange('password', e.target.value)}
-            className={`w-full px-4 py-3 pr-12 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors ${
+            className={`w-full px-4 py-3 pr-12 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors text-gray-900 placeholder-gray-400 ${
               errors.password ? 'border-red-500' : 'border-gray-300'
             }`}
             placeholder="Mínimo 8 caracteres"
@@ -149,7 +167,7 @@ export default function RegisterForm({ onSubmit, isLoading }: RegisterFormProps)
             type={showConfirmPassword ? 'text' : 'password'}
             value={formData.password_confirm}
             onChange={(e) => handleChange('password_confirm', e.target.value)}
-            className={`w-full px-4 py-3 pr-12 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors ${
+            className={`w-full px-4 py-3 pr-12 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors text-gray-900 placeholder-gray-400 ${
               errors.password_confirm ? 'border-red-500' : 'border-gray-300'
             }`}
             placeholder="Repite tu contraseña"

@@ -30,9 +30,18 @@ export function useAuth(): UseAuthReturn {
   }, [])
 
   const checkAuth = useCallback(() => {
-    const authenticated = AuthService.isAuthenticated()
-    setIsAuthenticated(authenticated)
-    setIsLoading(false)
+    try {
+      console.log('🔍 useAuth: Verificando autenticación...')
+      const authenticated = AuthService.isAuthenticated()
+      console.log('✅ useAuth: Resultado autenticación:', authenticated)
+      setIsAuthenticated(authenticated)
+      setIsLoading(false)
+    } catch (error) {
+      console.error('❌ useAuth: Error en checkAuth:', error)
+      setError('Error al verificar autenticación')
+      setIsAuthenticated(false)
+      setIsLoading(false)
+    }
   }, [])
 
   const login = useCallback(

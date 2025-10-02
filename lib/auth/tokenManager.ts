@@ -173,9 +173,25 @@ export class TokenManager {
    * Verifica si el usuario está autenticado
    */
   static isAuthenticated(): boolean {
-    const token = this.getAccessToken()
-    if (!token) return false
+    try {
+      console.log('🔍 TokenManager: Verificando autenticación...')
+      const token = this.getAccessToken()
+      console.log('📝 TokenManager: Token obtenido:', token ? 'Sí' : 'No')
+      
+      if (!token) {
+        console.log('❌ TokenManager: No hay token')
+        return false
+      }
 
-    return !this.isTokenExpired(token)
+      const isExpired = this.isTokenExpired(token)
+      console.log('⏰ TokenManager: Token expirado:', isExpired)
+      
+      const isAuth = !isExpired
+      console.log('✅ TokenManager: Resultado autenticación:', isAuth)
+      return isAuth
+    } catch (error) {
+      console.error('💥 TokenManager: Error en isAuthenticated:', error)
+      return false
+    }
   }
 }
