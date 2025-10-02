@@ -8,23 +8,32 @@ import (
 	"github.com/JoseLuis21/mv-backend/internal/core/tenant/ports"
 	userDomain "github.com/JoseLuis21/mv-backend/internal/core/user/domain"
 	userPorts "github.com/JoseLuis21/mv-backend/internal/core/user/ports"
+	rolePorts "github.com/JoseLuis21/mv-backend/internal/core/role/ports"
+	userRolePorts "github.com/JoseLuis21/mv-backend/internal/core/user_role/ports"
+	userRoleDomain "github.com/JoseLuis21/mv-backend/internal/core/user_role/domain"
 	"github.com/google/uuid"
 )
 
 // tenantService implementa el servicio de tenant
 type tenantService struct {
-	tenantRepo  ports.TenantRepository
-	userService userPorts.UserService
+	tenantRepo      ports.TenantRepository
+	userService     userPorts.UserService
+	roleService     rolePorts.RoleService
+	userRoleService userRolePorts.UserRoleService
 }
 
 // NewTenantService crea una nueva instancia del servicio de tenant
 func NewTenantService(
 	tenantRepo ports.TenantRepository,
 	userService userPorts.UserService,
+	roleService rolePorts.RoleService,
+	userRoleService userRolePorts.UserRoleService,
 ) ports.TenantService {
 	return &tenantService{
-		tenantRepo:  tenantRepo,
-		userService: userService,
+		tenantRepo:      tenantRepo,
+		userService:     userService,
+		roleService:     roleService,
+		userRoleService: userRoleService,
 	}
 }
 
@@ -140,7 +149,28 @@ func (s *tenantService) CreateTenantFromDTO(ctx context.Context, dto *tenantDoma
 		return nil, fmt.Errorf("error asociando usuario al tenant: %w", err)
 	}
 
-	// 6. Crear base de datos del tenant dinámicamente
+	// 6. Asignar rol "administrator" al usuario creador del tenant (usuario maestro)
+	adminRole, err := s.roleService.GetRoleByName(ctx, "administrator", &tenant.ID)
+	if err != nil {
+		// Si no existe el rol administrator para este tenant, buscar el global
+		adminRole, err = s.roleService.GetRoleByName(ctx, "administrator", nil)
+		if err != nil {
+			return nil, fmt.Errorf("error obteniendo rol administrator: %w", err)
+		}
+	}
+
+	// Crear la relación usuario-rol (asignar rol Administrator al usuario)
+	createUserRoleDto := &userRoleDomain.CreateUserRoleDto{
+		UserID:   userID,
+		RoleID:   adminRole.ID,
+		TenantID: &tenant.ID,
+	}
+
+	if _, err := s.userRoleService.CreateUserRole(ctx, createUserRoleDto); err != nil {
+		return nil, fmt.Errorf("error asignando rol Administrator al usuario: %w", err)
+	}
+
+	// 7. Crear base de datos del tenant dinámicamente
 	// TODO: Implementar cuando tengamos el sistema de migraciones para tenants
 	// if err := s.tenantRepo.CreateTenantDatabase(ctx, tenant.TenantName); err != nil {
 	//     return nil, fmt.Errorf("error creando base de datos del tenant: %w", err)

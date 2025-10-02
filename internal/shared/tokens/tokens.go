@@ -28,6 +28,7 @@ type Service interface {
 
 	// Access y Refresh tokens con tenant context
 	GenerateAccessToken(userID uuid.UUID, tenantID *uuid.UUID) (string, int64, error)
+	GenerateAccessTokenWithRoles(userID uuid.UUID, tenantID *uuid.UUID, roles []string, permissions []string) (string, int64, error)
 	GenerateRefreshToken(userID uuid.UUID, tenantID *uuid.UUID) (string, int64, error)
 	ValidateAccessToken(tokenString string) (*TokenClaims, error)
 	ValidateRefreshToken(tokenString string) (*TokenClaims, error)
@@ -194,11 +195,13 @@ func (ts *ServiceImpl) GenerateJWTWithConfig(config JWTConfig) (string, error) {
 
 // TokenClaims estructura de claims para access y refresh tokens
 type TokenClaims struct {
-	UserID   uuid.UUID
-	TenantID *uuid.UUID
-	Type     string // "access" o "refresh"
-	IssuedAt time.Time
-	ExpiresAt time.Time
+	UserID      uuid.UUID
+	TenantID    *uuid.UUID
+	Type        string // "access" o "refresh"
+	Roles       []string
+	Permissions []string
+	IssuedAt    time.Time
+	ExpiresAt   time.Time
 }
 
 // GenerateAccessToken genera un access token JWT con user_id y tenant_id opcional
@@ -210,6 +213,32 @@ func (ts *ServiceImpl) GenerateAccessToken(userID uuid.UUID, tenantID *uuid.UUID
 	claims := map[string]interface{}{
 		"user_id": userID.String(),
 		"type":    "access",
+	}
+
+	// Agregar tenant_id solo si está presente
+	if tenantID != nil {
+		claims["tenant_id"] = tenantID.String()
+	}
+
+	token, err := ts.GenerateJWT(claims, expiryDuration)
+	if err != nil {
+		return "", 0, err
+	}
+
+	return token, expiresIn, nil
+}
+
+// GenerateAccessTokenWithRoles genera un access token JWT con roles y permisos incluidos
+func (ts *ServiceImpl) GenerateAccessTokenWithRoles(userID uuid.UUID, tenantID *uuid.UUID, roles []string, permissions []string) (string, int64, error) {
+	// Access token expira en 1 hora
+	expiryDuration := 1 * time.Hour
+	expiresIn := int64(expiryDuration.Seconds())
+
+	claims := map[string]interface{}{
+		"user_id":     userID.String(),
+		"type":        "access",
+		"roles":       roles,
+		"permissions": permissions,
 	}
 
 	// Agregar tenant_id solo si está presente
@@ -306,6 +335,26 @@ func (ts *ServiceImpl) parseTokenClaims(claims jwt.MapClaims) (*TokenClaims, err
 	// Extraer tipo
 	tokenType, _ := claims["type"].(string)
 
+	// Extraer roles (opcional)
+	var roles []string
+	if rolesInterface, ok := claims["roles"].([]interface{}); ok {
+		for _, r := range rolesInterface {
+			if roleStr, ok := r.(string); ok {
+				roles = append(roles, roleStr)
+			}
+		}
+	}
+
+	// Extraer permissions (opcional)
+	var permissions []string
+	if permsInterface, ok := claims["permissions"].([]interface{}); ok {
+		for _, p := range permsInterface {
+			if permStr, ok := p.(string); ok {
+				permissions = append(permissions, permStr)
+			}
+		}
+	}
+
 	// Extraer timestamps
 	var issuedAt time.Time
 	if iat, ok := claims["iat"].(float64); ok {
@@ -318,10 +367,12 @@ func (ts *ServiceImpl) parseTokenClaims(claims jwt.MapClaims) (*TokenClaims, err
 	}
 
 	return &TokenClaims{
-		UserID:    userID,
-		TenantID:  tenantID,
-		Type:      tokenType,
-		IssuedAt:  issuedAt,
-		ExpiresAt: expiresAt,
+		UserID:      userID,
+		TenantID:    tenantID,
+		Type:        tokenType,
+		Roles:       roles,
+		Permissions: permissions,
+		IssuedAt:    issuedAt,
+		ExpiresAt:   expiresAt,
 	}, nil
 }

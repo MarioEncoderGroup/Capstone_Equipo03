@@ -17,6 +17,8 @@ import (
 	permissionServices "github.com/JoseLuis21/mv-backend/internal/core/permission/services"
 	userRoleAdapters "github.com/JoseLuis21/mv-backend/internal/core/user_role/adapters"
 	userRoleServices "github.com/JoseLuis21/mv-backend/internal/core/user_role/services"
+	rolePermissionAdapters "github.com/JoseLuis21/mv-backend/internal/core/role_permission/adapters"
+	rolePermissionServices "github.com/JoseLuis21/mv-backend/internal/core/role_permission/services"
 	regionAdapters "github.com/JoseLuis21/mv-backend/internal/core/region/adapters"
 	regionServices "github.com/JoseLuis21/mv-backend/internal/core/region/services"
 	communeAdapters "github.com/JoseLuis21/mv-backend/internal/core/commune/adapters"
@@ -32,10 +34,11 @@ type Dependencies struct {
 	AuthController       *controllers.AuthController
 	TenantController     *controllers.TenantController
 	UserController       *controllers.UserController
-	RoleController       *controllers.RoleController
-	PermissionController *controllers.PermissionController
-	UserRoleController   *controllers.UserRoleController
-	RegionController     *controllers.RegionController
+	RoleController           *controllers.RoleController
+	PermissionController     *controllers.PermissionController
+	UserRoleController       *controllers.UserRoleController
+	RolePermissionController *controllers.RolePermissionController
+	RegionController         *controllers.RegionController
 	CommuneController    *controllers.CommuneController
 
 	// Middlewares
@@ -58,6 +61,7 @@ func NewDependencies(dbControl *postgresql.PostgresqlClient) (*Dependencies, err
 	roleRepo := roleAdapters.NewPostgreSQLRoleRepository(dbControl)
 	permissionRepo := permissionAdapters.NewPgPermissionRepository(dbControl)
 	userRoleRepo := userRoleAdapters.NewPgUserRoleRepository(dbControl)
+	rolePermissionRepo := rolePermissionAdapters.NewPgRolePermissionRepository(dbControl)
 	regionRepo := regionAdapters.NewPostgreSQLRegionRepository(dbControl)
 	communeRepo := communeAdapters.NewPostgreSQLCommuneRepository(dbControl)
 
@@ -71,17 +75,22 @@ func NewDependencies(dbControl *postgresql.PostgresqlClient) (*Dependencies, err
 	roleService := roleServices.NewRoleService(roleRepo)
 	permissionService := permissionServices.NewPermissionService(permissionRepo)
 	userRoleService := userRoleServices.NewUserRoleService(userRoleRepo, userService, roleService)
+	rolePermissionService := rolePermissionServices.NewRolePermissionService(rolePermissionRepo, roleService, permissionService)
 
 	authService := services.NewAuthService(
 		userService,
 		passwordHasher,
 		tokenGenerator,
 		emailService,
+		roleService,
+		rolePermissionService,
 	)
 
 	tenantService := tenantServices.NewTenantService(
 		tenantRepo,
 		userService,
+		roleService,
+		userRoleService,
 	)
 
 	regionService := regionServices.NewRegionService(regionRepo)
@@ -97,21 +106,23 @@ func NewDependencies(dbControl *postgresql.PostgresqlClient) (*Dependencies, err
 	roleController := controllers.NewRoleController(roleService, validator)
 	permissionController := controllers.NewPermissionController(permissionService, validator)
 	userRoleController := controllers.NewUserRoleController(userRoleService, validator)
+	rolePermissionController := controllers.NewRolePermissionController(rolePermissionService, validator)
 	regionController := controllers.NewRegionController(regionService)
 	communeController := controllers.NewCommuneController(communeService)
 
 	return &Dependencies{
-		AuthController:       authController,
-		TenantController:     tenantController,
-		UserController:       userController,
-		RoleController:       roleController,
-		PermissionController: permissionController,
-		UserRoleController:   userRoleController,
-		RegionController:     regionController,
-		CommuneController:    communeController,
-		RBACMiddleware:       rbacMiddleware,
-		DBControl:            dbControl,
-		Validator:            validator,
+		AuthController:           authController,
+		TenantController:         tenantController,
+		UserController:           userController,
+		RoleController:           roleController,
+		PermissionController:     permissionController,
+		UserRoleController:       userRoleController,
+		RolePermissionController: rolePermissionController,
+		RegionController:         regionController,
+		CommuneController:        communeController,
+		RBACMiddleware:           rbacMiddleware,
+		DBControl:                dbControl,
+		Validator:                validator,
 	}, nil
 }
 

@@ -11,6 +11,8 @@ import (
 	tenantDomain "github.com/JoseLuis21/mv-backend/internal/core/tenant/domain"
 	userDomain "github.com/JoseLuis21/mv-backend/internal/core/user/domain"
 	userPorts "github.com/JoseLuis21/mv-backend/internal/core/user/ports"
+	rolePorts "github.com/JoseLuis21/mv-backend/internal/core/role/ports"
+	rolePermissionPorts "github.com/JoseLuis21/mv-backend/internal/core/role_permission/ports"
 	"github.com/JoseLuis21/mv-backend/internal/shared/email"
 	sharedErrors "github.com/JoseLuis21/mv-backend/internal/shared/errors"
 	"github.com/JoseLuis21/mv-backend/internal/shared/hasher"
@@ -20,11 +22,13 @@ import (
 
 // authService implementa el servicio de autenticación usando servicios genéricos
 type authService struct {
-	userService      userPorts.UserService
-	passwordHasher   *hasher.Service
-	tokenService     tokens.Service
-	emailService     email.Service
-	emailTokenExpiry time.Duration
+	userService             userPorts.UserService
+	passwordHasher          *hasher.Service
+	tokenService            tokens.Service
+	emailService            email.Service
+	roleService             rolePorts.RoleService
+	rolePermissionService   rolePermissionPorts.RolePermissionService
+	emailTokenExpiry        time.Duration
 }
 
 // NewAuthService crea una nueva instancia del servicio de autenticación
@@ -33,13 +37,17 @@ func NewAuthService(
 	passwordHasher *hasher.Service,
 	tokenService tokens.Service,
 	emailService email.Service,
+	roleService rolePorts.RoleService,
+	rolePermissionService rolePermissionPorts.RolePermissionService,
 ) ports.AuthService {
 	return &authService{
-		userService:      userService,
-		passwordHasher:   passwordHasher,
-		tokenService:     tokenService,
-		emailService:     emailService,
-		emailTokenExpiry: 24 * time.Hour, // Token válido por 24 horas
+		userService:           userService,
+		passwordHasher:        passwordHasher,
+		tokenService:          tokenService,
+		emailService:          emailService,
+		roleService:           roleService,
+		rolePermissionService: rolePermissionService,
+		emailTokenExpiry:      24 * time.Hour, // Token válido por 24 horas
 	}
 }
 
@@ -400,8 +408,31 @@ func (s *authService) SelectTenant(ctx context.Context, tenant *tenantDomain.Ten
 	// TODO: Aquí se debería verificar que el usuario tiene acceso al tenant
 	// mediante un repositorio o servicio de UserTenant, pero por ahora lo omitimos
 
-	// 4. Generar access token con tenant_id en los claims
-	accessToken, expiresIn, err := s.tokenService.GenerateAccessToken(user.ID, &tenant.ID)
+	// 4. Obtener roles del usuario en el tenant
+	userRoles, err := s.roleService.GetUserRoles(ctx, user.ID, &tenant.ID)
+	if err != nil {
+		return nil, fmt.Errorf("error getting user roles: %w", err)
+	}
+
+	// Extraer IDs de roles para obtener permisos
+	var roleIDs []uuid.UUID
+	var roleNames []string
+	for _, role := range userRoles {
+		roleIDs = append(roleIDs, role.ID)
+		roleNames = append(roleNames, role.Name)
+	}
+
+	// 5. Obtener permisos del usuario basados en sus roles
+	var permissionNames []string
+	if len(roleIDs) > 0 {
+		permissionNames, err = s.rolePermissionService.GetPermissionNamesByRoleIDs(ctx, roleIDs)
+		if err != nil {
+			return nil, fmt.Errorf("error getting user permissions: %w", err)
+		}
+	}
+
+	// 6. Generar access token con tenant_id, roles y permisos en los claims
+	accessToken, expiresIn, err := s.tokenService.GenerateAccessTokenWithRoles(user.ID, &tenant.ID, roleNames, permissionNames)
 	if err != nil {
 		return nil, fmt.Errorf("error generating access token: %w", err)
 	}

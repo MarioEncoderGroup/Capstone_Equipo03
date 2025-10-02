@@ -1,15 +1,15 @@
 package routes
 
 import (
-	"github.com/gofiber/fiber/v2"
 	"github.com/JoseLuis21/mv-backend/internal/controllers"
 	"github.com/JoseLuis21/mv-backend/internal/libraries/postgresql"
 	"github.com/JoseLuis21/mv-backend/internal/middleware"
 	"github.com/JoseLuis21/mv-backend/internal/middlewares"
+	"github.com/gofiber/fiber/v2"
 )
 
 // PrivateRoutes defines all private routes for MisViaticos API
-func PrivateRoutes(app *fiber.App, dbControl *postgresql.PostgresqlClient, tenantController *controllers.TenantController, userController *controllers.UserController, roleController *controllers.RoleController, permissionController *controllers.PermissionController, userRoleController *controllers.UserRoleController, rbacMiddleware *middlewares.RBACMiddleware) *fiber.App {
+func PrivateRoutes(app *fiber.App, dbControl *postgresql.PostgresqlClient, tenantController *controllers.TenantController, userController *controllers.UserController, roleController *controllers.RoleController, permissionController *controllers.PermissionController, userRoleController *controllers.UserRoleController, rolePermissionController *controllers.RolePermissionController, rbacMiddleware *middlewares.RBACMiddleware) *fiber.App {
 	// Create authentication middleware
 	authMiddleware := middleware.AuthMiddleware(dbControl)
 
@@ -19,7 +19,7 @@ func PrivateRoutes(app *fiber.App, dbControl *postgresql.PostgresqlClient, tenan
 	// Tenant management routes
 	tenant := private.Group("/tenant")
 	tenant.Get("/status", tenantController.GetTenantStatus) // Verifica si usuario tiene tenants
-	tenant.Post("/create", tenantController.CreateTenant)    // Crea nuevo tenant
+	tenant.Post("/create", tenantController.CreateTenant)   // Crea nuevo tenant
 	tenant.Get("/", tenantController.GetTenantsByUser)
 	tenant.Post("/select/:tenantId", tenantController.SelectTenant)
 	tenant.Get("/:tenantId/profile", tenantController.GetTenantProfile)
@@ -32,7 +32,7 @@ func PrivateRoutes(app *fiber.App, dbControl *postgresql.PostgresqlClient, tenan
 	users.Post("/change-password", userController.ChangePassword)
 
 	// Admin user management routes
-	adminUsers := private.Group("/admin/users", rbacMiddleware.RequireRole("Administrator", "Administrador"))
+	adminUsers := private.Group("/admin/users", rbacMiddleware.RequireRole("administrator"))
 	adminUsers.Get("/", userController.GetUsers)
 	adminUsers.Get("/:id", userController.GetUserByID)
 	adminUsers.Post("/", rbacMiddleware.RequirePermission("create_users"), userController.CreateUser)
@@ -40,15 +40,15 @@ func PrivateRoutes(app *fiber.App, dbControl *postgresql.PostgresqlClient, tenan
 	adminUsers.Delete("/:id", rbacMiddleware.RequirePermission("delete_users"), userController.DeleteUser)
 
 	// Role management routes
-	roles := private.Group("/roles", rbacMiddleware.RequireTenantAccess())
-	roles.Get("/", rbacMiddleware.RequirePermission("view_roles"), roleController.GetRoles)
-	roles.Get("/:id", rbacMiddleware.RequirePermission("view_roles"), roleController.GetRoleByID)
+	roles := private.Group("/roles", rbacMiddleware.RequireRole("administrator"))
+	roles.Get("/", roleController.GetRoles)
+	roles.Get("/:id", roleController.GetRoleByID)
 	roles.Post("/", rbacMiddleware.RequirePermission("create_roles"), roleController.CreateRole)
 	roles.Put("/:id", rbacMiddleware.RequirePermission("update_roles"), roleController.UpdateRole)
 	roles.Delete("/:id", rbacMiddleware.RequirePermission("delete_roles"), roleController.DeleteRole)
 
 	// Permission management routes
-	permissions := private.Group("/permissions", rbacMiddleware.RequireRole("Administrator", "Administrador"))
+	permissions := private.Group("/permissions", rbacMiddleware.RequireRole("administrator"))
 	permissions.Get("/", permissionController.GetPermissions)
 	permissions.Get("/sections", permissionController.GetAvailableSections)
 	permissions.Get("/grouped", permissionController.GetPermissionsGrouped)
@@ -58,7 +58,7 @@ func PrivateRoutes(app *fiber.App, dbControl *postgresql.PostgresqlClient, tenan
 	permissions.Delete("/:id", rbacMiddleware.RequireSystemAdmin(), permissionController.DeletePermission)
 
 	// User-Role assignment routes
-	userRoles := private.Group("/user-roles", rbacMiddleware.RequireRole("Administrator", "Administrador", "Gerente"))
+	userRoles := private.Group("/user-roles", rbacMiddleware.RequireRole("administrator", "manager"))
 	userRoles.Get("/users/:userID/roles", userRoleController.GetUserRoles)
 	userRoles.Get("/roles/:roleID/users", userRoleController.GetRoleUsers)
 	userRoles.Post("/assign", rbacMiddleware.RequirePermission("assign_roles"), userRoleController.CreateUserRole)
@@ -66,50 +66,59 @@ func PrivateRoutes(app *fiber.App, dbControl *postgresql.PostgresqlClient, tenan
 	userRoles.Put("/users/:userID/sync", rbacMiddleware.RequirePermission("assign_roles"), userRoleController.SyncUserRoles)
 	userRoles.Put("/roles/:roleID/sync", rbacMiddleware.RequirePermission("assign_roles"), userRoleController.SyncRoleUsers)
 
+	// Role-Permission assignment routes
+	rolePermissions := private.Group("/role-permissions", rbacMiddleware.RequireRole("administrator"))
+	rolePermissions.Get("/roles/:roleID", rbacMiddleware.RequirePermission("view_roles"), rolePermissionController.GetRolePermissions)
+	rolePermissions.Get("/permissions/:permissionID", rbacMiddleware.RequirePermission("view_permissions"), rolePermissionController.GetPermissionRoles)
+	rolePermissions.Post("/assign", rbacMiddleware.RequirePermission("manage_permissions"), rolePermissionController.CreateRolePermission)
+	rolePermissions.Delete("/unassign", rbacMiddleware.RequirePermission("manage_permissions"), rolePermissionController.DeleteRolePermission)
+	rolePermissions.Put("/roles/:roleID/sync", rbacMiddleware.RequirePermission("manage_permissions"), rolePermissionController.SyncRolePermissions)
+	rolePermissions.Get("/check", rbacMiddleware.RequirePermission("view_roles"), rolePermissionController.CheckRoleHasPermission)
+	rolePermissions.Delete("/roles/:roleID/all", rbacMiddleware.RequirePermission("manage_permissions"), rolePermissionController.RemoveAllPermissionsFromRole)
+
 	// TODO: Implement these tenant controllers
 	// tenant.Post("/create", controllers.CreateTenant)
 	// tenant.Put("/update/:tenantID", controllers.UpdateTenant)
-	// tenant.Get("/current", controllers.GetCurrentTenant)
 
 	// TODO: Implement all remaining controllers and uncomment these routes
 	/*
 
-	// Expense management routes (core MisViaticos functionality)
-	expenses := private.Group("/expenses")
-	expenses.Get("/", controllers.GetExpenses)
-	expenses.Post("/", controllers.CreateExpense)
-	expenses.Get("/:expenseID", controllers.GetExpense)
-	expenses.Put("/:expenseID", controllers.UpdateExpense)
-	expenses.Delete("/:expenseID", controllers.DeleteExpense)
-	expenses.Post("/:expenseID/submit", controllers.SubmitExpense)
-	expenses.Post("/:expenseID/approve", controllers.ApproveExpense)
-	expenses.Post("/:expenseID/reject", controllers.RejectExpense)
+		// Expense management routes (core MisViaticos functionality)
+		expenses := private.Group("/expenses")
+		expenses.Get("/", controllers.GetExpenses)
+		expenses.Post("/", controllers.CreateExpense)
+		expenses.Get("/:expenseID", controllers.GetExpense)
+		expenses.Put("/:expenseID", controllers.UpdateExpense)
+		expenses.Delete("/:expenseID", controllers.DeleteExpense)
+		expenses.Post("/:expenseID/submit", controllers.SubmitExpense)
+		expenses.Post("/:expenseID/approve", controllers.ApproveExpense)
+		expenses.Post("/:expenseID/reject", controllers.RejectExpense)
 
-	// Receipt management routes
-	receipts := private.Group("/receipts")
-	receipts.Post("/upload", controllers.UploadReceipt)
-	receipts.Get("/:receiptID", controllers.GetReceipt)
-	receipts.Delete("/:receiptID", controllers.DeleteReceipt)
+		// Receipt management routes
+		receipts := private.Group("/receipts")
+		receipts.Post("/upload", controllers.UploadReceipt)
+		receipts.Get("/:receiptID", controllers.GetReceipt)
+		receipts.Delete("/:receiptID", controllers.DeleteReceipt)
 
-	// Category management routes
-	categories := private.Group("/categories")
-	categories.Get("/", controllers.GetCategories)
-	categories.Post("/", controllers.CreateCategory)
-	categories.Put("/:categoryID", controllers.UpdateCategory)
-	categories.Delete("/:categoryID", controllers.DeleteCategory)
+		// Category management routes
+		categories := private.Group("/categories")
+		categories.Get("/", controllers.GetCategories)
+		categories.Post("/", controllers.CreateCategory)
+		categories.Put("/:categoryID", controllers.UpdateCategory)
+		categories.Delete("/:categoryID", controllers.DeleteCategory)
 
-	// Reporting routes
-	reports := private.Group("/reports")
-	reports.Get("/expenses", controllers.GetExpenseReport)
-	reports.Get("/summary", controllers.GetExpenseSummary)
-	reports.Get("/export/excel", controllers.ExportExpensesToExcel)
-	reports.Get("/export/pdf", controllers.ExportExpensesToPDF)
+		// Reporting routes
+		reports := private.Group("/reports")
+		reports.Get("/expenses", controllers.GetExpenseReport)
+		reports.Get("/summary", controllers.GetExpenseSummary)
+		reports.Get("/export/excel", controllers.ExportExpensesToExcel)
+		reports.Get("/export/pdf", controllers.ExportExpensesToPDF)
 
-	// Admin routes (require admin role)
-	admin := private.Group("/admin", rbacMiddleware.RequireAdminRole())
-	admin.Get("/analytics", controllers.GetAnalytics)
-	// TODO: Implement expense management routes
-	// admin.Get("/expenses", controllers.GetAllExpenses)
+		// Admin routes (require admin role)
+		admin := private.Group("/admin", rbacMiddleware.RequireAdminRole())
+		admin.Get("/analytics", controllers.GetAnalytics)
+		// TODO: Implement expense management routes
+		// admin.Get("/expenses", controllers.GetAllExpenses)
 	*/
 
 	return app

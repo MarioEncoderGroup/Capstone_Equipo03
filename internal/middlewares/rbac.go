@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 	permissionPorts "github.com/JoseLuis21/mv-backend/internal/core/permission/ports"
 	rolePorts "github.com/JoseLuis21/mv-backend/internal/core/role/ports"
 	sharedAuth "github.com/JoseLuis21/mv-backend/internal/shared/auth"
 	sharedErrors "github.com/JoseLuis21/mv-backend/internal/shared/errors"
 	sharedTypes "github.com/JoseLuis21/mv-backend/internal/shared/types"
+	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 )
 
 // RBACMiddleware maneja el control de acceso basado en roles y permisos
@@ -114,7 +114,7 @@ func (m *RBACMiddleware) RequireRole(roleNames ...string) fiber.Handler {
 
 // RequireAdminRole valida que el usuario sea administrador
 func (m *RBACMiddleware) RequireAdminRole() fiber.Handler {
-	return m.RequireRole("Administrador", "Administrator", "Administrador Empresa")
+	return m.RequireRole("administrator")
 }
 
 // RequireSystemAdmin valida que el usuario sea administrador del sistema (global)
@@ -141,7 +141,7 @@ func (m *RBACMiddleware) RequireSystemAdmin() fiber.Handler {
 		// Buscar rol de administrador del sistema
 		isSystemAdmin := false
 		for _, role := range userRoles {
-			if role.Name == "Administrator" {
+			if role.Name == "administrator" {
 				isSystemAdmin = true
 				break
 			}

@@ -53,14 +53,32 @@ func AuthMiddleware(dbControl *postgresql.PostgresqlClient) fiber.Handler {
 		// 5. Guardar información del usuario en el contexto de Fiber
 		c.Locals("userID", claims.UserID.String())
 
+		// Crear y guardar objeto User en el contexto para RBAC middleware
+		user := fiber.Map{
+			"id": claims.UserID.String(),
+		}
+
 		if claims.TenantID != nil {
 			c.Locals("tenantID", claims.TenantID.String())
+			user["tenantId"] = claims.TenantID.String()
+		}
+
+		c.Locals("user", user)
+
+		// Guardar roles y permisos en el contexto
+		if len(claims.Roles) > 0 {
+			c.Locals("roles", claims.Roles)
+		}
+
+		if len(claims.Permissions) > 0 {
+			c.Locals("permissions", claims.Permissions)
 		}
 
 		// 6. Continuar con la siguiente función en la cadena
 		return c.Next()
 	}
 }
+
 
 // AuthMiddlewareWithUserService valida JWT y verifica usuario en BD
 func AuthMiddlewareWithUserService(userService ports.UserService) fiber.Handler {
@@ -121,6 +139,15 @@ func AuthMiddlewareWithUserService(userService ports.UserService) fiber.Handler 
 
 		if claims.TenantID != nil {
 			c.Locals("tenantID", claims.TenantID.String())
+		}
+
+		// Guardar roles y permisos en el contexto
+		if len(claims.Roles) > 0 {
+			c.Locals("roles", claims.Roles)
+		}
+
+		if len(claims.Permissions) > 0 {
+			c.Locals("permissions", claims.Permissions)
 		}
 
 		// 6. Continuar con la siguiente función en la cadena
