@@ -6,19 +6,26 @@ import (
 
 	"github.com/JoseLuis21/mv-backend/internal/core/role/domain"
 	"github.com/JoseLuis21/mv-backend/internal/core/role/ports"
+	permissionDomain "github.com/JoseLuis21/mv-backend/internal/core/permission/domain"
+	permissionPorts "github.com/JoseLuis21/mv-backend/internal/core/permission/ports"
+	rolePermissionPorts "github.com/JoseLuis21/mv-backend/internal/core/role_permission/ports"
 	sharedErrors "github.com/JoseLuis21/mv-backend/internal/shared/errors"
 	"github.com/google/uuid"
 )
 
 // roleService implementa el servicio de roles siguiendo principios de Clean Architecture
 type roleService struct {
-	roleRepo ports.RoleRepository
+	roleRepo              ports.RoleRepository
+	permissionService     permissionPorts.PermissionService
+	rolePermissionRepo    rolePermissionPorts.RolePermissionRepository
 }
 
 // NewRoleService crea una nueva instancia del servicio de roles
-func NewRoleService(roleRepo ports.RoleRepository) ports.RoleService {
+func NewRoleService(roleRepo ports.RoleRepository, permissionService permissionPorts.PermissionService, rolePermissionRepo rolePermissionPorts.RolePermissionRepository) ports.RoleService {
 	return &roleService{
-		roleRepo: roleRepo,
+		roleRepo:           roleRepo,
+		permissionService:  permissionService,
+		rolePermissionRepo: rolePermissionRepo,
 	}
 }
 
@@ -128,9 +135,27 @@ func (s *roleService) GetRoles(ctx context.Context, filter *domain.RoleFilterReq
 		return nil, fmt.Errorf("error obteniendo roles: %w", err)
 	}
 
+	// Obtener permisos para cada rol
 	responses := make([]domain.RoleResponse, len(roles))
 	for i, role := range roles {
-		responses[i] = *role.ToResponse()
+		// Obtener permisos del rol usando el servicio de permisos
+		permissionResponses, err := s.permissionService.GetRolePermissions(ctx, role.ID)
+		if err != nil {
+			// Log error pero continuar (no fallar por un error de permisos)
+			fmt.Printf("⚠️  Error obteniendo permisos del rol %s: %v\n", role.ID, err)
+			responses[i] = *role.ToResponse()
+			continue
+		}
+
+		// Construir respuesta con permisos
+		response := role.ToResponse()
+		if len(permissionResponses) > 0 {
+			response.Permissions = make([]permissionDomain.PermissionResponse, len(permissionResponses))
+			for j, perm := range permissionResponses {
+				response.Permissions[j] = *perm
+			}
+		}
+		responses[i] = *response
 	}
 
 	return &domain.RoleListResponse{
@@ -280,18 +305,28 @@ func (s *roleService) InitializeSystemRoles(ctx context.Context) error {
 	systemRoles := []struct {
 		name        string
 		description string
+		permissions []string
 	}{
 		{
 			name:        domain.RoleNameAdministrator,
 			description: "Administrador del sistema con acceso completo",
+			permissions: []string{}, // Asignar todos los permisos después
 		},
 		{
 			name:        domain.RoleNameApprover,
 			description: "Aprobador de gastos y viáticos",
+			permissions: []string{
+				"list-user",
+				"list-role",
+				"list-permission",
+			},
 		},
 		{
 			name:        domain.RoleNameExpenseSubmitter,
 			description: "Usuario que puede enviar gastos y solicitar viáticos",
+			permissions: []string{
+				"list-user",
+			},
 		},
 	}
 
@@ -308,10 +343,75 @@ func (s *roleService) InitializeSystemRoles(ctx context.Context) error {
 			if err := s.roleRepo.Create(ctx, role); err != nil {
 				return fmt.Errorf("error creando rol del sistema %s: %w", sysRole.name, err)
 			}
+
+			// Asignar permisos al rol
+			if len(sysRole.permissions) > 0 {
+				if err := s.assignPermissionsToRole(ctx, role.ID, sysRole.permissions); err != nil {
+					// Log error pero no fallar la creación del rol
+					fmt.Printf("⚠️  Error asignando permisos a rol %s: %v\n", sysRole.name, err)
+				}
+			}
+		} else {
+			// Si el rol ya existe, verificar si tiene permisos asignados
+			role, err := s.roleRepo.GetByName(ctx, sysRole.name, nil)
+			if err != nil {
+				continue
+			}
+
+			// Obtener permisos actuales del rol
+			currentPermissions, err := s.rolePermissionRepo.GetByRoleID(ctx, role.ID)
+			if err == nil && len(currentPermissions) == 0 && len(sysRole.permissions) > 0 {
+				// El rol existe pero no tiene permisos, asignarlos
+				if err := s.assignPermissionsToRole(ctx, role.ID, sysRole.permissions); err != nil {
+					fmt.Printf("⚠️  Error asignando permisos a rol existente %s: %v\n", sysRole.name, err)
+				}
+			}
+		}
+	}
+
+	// Asignar todos los permisos al rol administrator si existe
+	if adminRole, err := s.roleRepo.GetByName(ctx, domain.RoleNameAdministrator, nil); err == nil {
+		allPermissions, err := s.permissionService.GetPermissions(ctx, &permissionDomain.PermissionFilterRequest{
+			Page:  1,
+			Limit: 1000,
+		})
+		if err == nil && len(allPermissions.Permissions) > 0 {
+			permissionNames := make([]string, len(allPermissions.Permissions))
+			for i, perm := range allPermissions.Permissions {
+				permissionNames[i] = perm.Name
+			}
+			// Solo asignar si no tiene permisos
+			currentPerms, err := s.rolePermissionRepo.GetByRoleID(ctx, adminRole.ID)
+			if err == nil && len(currentPerms) == 0 {
+				if err := s.assignPermissionsToRole(ctx, adminRole.ID, permissionNames); err != nil {
+					fmt.Printf("⚠️  Error asignando permisos a administrator: %v\n", err)
+				}
+			}
 		}
 	}
 
 	return nil
+}
+
+// assignPermissionsToRole asigna múltiples permisos a un rol por nombre
+func (s *roleService) assignPermissionsToRole(ctx context.Context, roleID uuid.UUID, permissionNames []string) error {
+	permissionIDs := []uuid.UUID{}
+
+	for _, permName := range permissionNames {
+		perm, err := s.permissionService.GetPermissionByName(ctx, permName)
+		if err != nil {
+			fmt.Printf("⚠️  Permiso '%s' no encontrado, saltando...\n", permName)
+			continue
+		}
+		permissionIDs = append(permissionIDs, perm.ID)
+	}
+
+	if len(permissionIDs) == 0 {
+		return fmt.Errorf("no se encontraron permisos válidos")
+	}
+
+	// Asignar permisos usando el repositorio
+	return s.rolePermissionRepo.SyncRolePermissions(ctx, roleID, permissionIDs)
 }
 
 // InitializeTenantRoles crea los roles por defecto para un nuevo tenant

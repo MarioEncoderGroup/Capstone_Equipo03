@@ -112,7 +112,40 @@ func (s *userService) CreateUserFromDto(ctx context.Context, dto *domain.CreateU
 	if dto.Phone != nil {
 		phone = *dto.Phone
 	}
-	user := domain.NewUser(dto.FullName, dto.Email, phone, hashedPassword)
+	
+	// Determinar isActive (si no se envía, default true para usuarios creados por admin)
+	isActive := true
+	if dto.IsActive != nil {
+		isActive = *dto.IsActive
+	}
+	
+	user := domain.NewUser(dto.FullName, dto.Email, phone, hashedPassword, isActive)
+
+	// Verificar y asegurar username único
+	// Si el username generado ya existe, agregar sufijo incremental
+	baseUsername := user.Username
+	counter := 1
+	for {
+		// Verificar si el username está disponible
+		usernameExists, err := s.userRepo.ExistsByUsername(ctx, user.Username)
+		if err != nil {
+			return nil, fmt.Errorf("error verificando username: %w", err)
+		}
+
+		// Si no existe, usar este username
+		if !usernameExists {
+			break
+		}
+
+		// Si existe, agregar sufijo numérico y reintentar
+		user.Username = fmt.Sprintf("%s_%d", baseUsername, counter)
+		counter++
+
+		// Prevenir loop infinito (máximo 100 intentos)
+		if counter > 100 {
+			return nil, fmt.Errorf("no se pudo generar un username único después de 100 intentos")
+		}
+	}
 
 	// Asignar campos opcionales
 	if dto.IdentificationNumber != nil {

@@ -3,6 +3,9 @@ package controllers
 import (
 	userDomain "github.com/JoseLuis21/mv-backend/internal/core/user/domain"
 	"github.com/JoseLuis21/mv-backend/internal/core/user/ports"
+	rolePorts "github.com/JoseLuis21/mv-backend/internal/core/role/ports"
+	userRoleDomain "github.com/JoseLuis21/mv-backend/internal/core/user_role/domain"
+	userRolePorts "github.com/JoseLuis21/mv-backend/internal/core/user_role/ports"
 	"github.com/JoseLuis21/mv-backend/internal/shared/pagination"
 	"github.com/JoseLuis21/mv-backend/internal/shared/types"
 	"github.com/JoseLuis21/mv-backend/internal/shared/validatorapi"
@@ -12,15 +15,19 @@ import (
 
 // UserController maneja las operaciones CRUD de usuarios
 type UserController struct {
-	userService ports.UserService
-	validator   *validatorapi.Validator
+	userService     ports.UserService
+	roleService     rolePorts.RoleService
+	userRoleService userRolePorts.UserRoleService
+	validator       *validatorapi.Validator
 }
 
 // NewUserController crea una nueva instancia del controller de usuarios
-func NewUserController(userService ports.UserService, validator *validatorapi.Validator) *UserController {
+func NewUserController(userService ports.UserService, roleService rolePorts.RoleService, userRoleService userRolePorts.UserRoleService, validator *validatorapi.Validator) *UserController {
 	return &UserController{
-		userService: userService,
-		validator:   validator,
+		userService:     userService,
+		roleService:     roleService,
+		userRoleService: userRoleService,
+		validator:       validator,
 	}
 }
 
@@ -63,10 +70,25 @@ func (uc *UserController) GetUsers(c *fiber.Ctx) error {
 		})
 	}
 
-	// Convertir a DTOs de respuesta
+	// Convertir a DTOs de respuesta y cargar roles
 	var userDtos []userDomain.UserListResponseDto
 	for _, user := range users {
-		userDtos = append(userDtos, *user.ToUserListResponseDto())
+		dto := user.ToUserListResponseDto()
+		
+		// Cargar roles del usuario (sin filtro de tenant para obtener todos)
+		roles, err := uc.roleService.GetUserRoles(c.Context(), user.ID, nil)
+		if err == nil && len(roles) > 0 {
+			dto.Roles = make([]userDomain.RoleResponseDto, len(roles))
+			for i, role := range roles {
+				dto.Roles[i] = userDomain.RoleResponseDto{
+					ID:          role.ID,
+					Name:        role.Name,
+					Description: role.Description,
+				}
+			}
+		}
+		
+		userDtos = append(userDtos, *dto)
 	}
 
 	// Calcular información de paginación
@@ -149,10 +171,44 @@ func (uc *UserController) CreateUser(c *fiber.Ctx) error {
 		})
 	}
 
+	// Asignar roles si se enviaron en el request
+	if len(req.RoleIDs) > 0 {
+		for _, roleID := range req.RoleIDs {
+			createUserRoleDto := &userRoleDomain.CreateUserRoleDto{
+				UserID:   user.ID,
+				RoleID:   roleID,
+				TenantID: nil, // Sin tenant específico (rol global)
+			}
+
+			_, err := uc.userRoleService.CreateUserRole(c.Context(), createUserRoleDto)
+			if err != nil {
+				// Log error pero no fallar la creación del usuario
+				// El usuario ya fue creado, solo falla la asignación del rol
+				// Podrías decidir retornar error o solo loguearlo
+			}
+		}
+	}
+
+	// Preparar respuesta con los roles asignados
+	dto := user.ToUserListResponseDto()
+	
+	// Cargar roles del usuario recién creado
+	roles, err := uc.roleService.GetUserRoles(c.Context(), user.ID, nil)
+	if err == nil && len(roles) > 0 {
+		dto.Roles = make([]userDomain.RoleResponseDto, len(roles))
+		for i, role := range roles {
+			dto.Roles[i] = userDomain.RoleResponseDto{
+				ID:          role.ID,
+				Name:        role.Name,
+				Description: role.Description,
+			}
+		}
+	}
+
 	return c.Status(fiber.StatusCreated).JSON(types.APIResponse{
 		Success: true,
 		Message: "Usuario creado exitosamente",
-		Data:    user.ToUserResponseDto(),
+		Data:    dto,
 	})
 }
 

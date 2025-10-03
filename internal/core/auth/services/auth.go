@@ -75,7 +75,8 @@ func (s *authService) Register(ctx context.Context, req *domain_auth.AuthRegiste
 	}
 
 	// 4. Crear entidad de usuario con fullName, email, phone, hashedPassword
-	user := userDomain.NewUser(req.FullName, req.Email, req.Phone, hashedPassword)
+	// Usuario inactivo (false) hasta verificar email
+	user := userDomain.NewUser(req.FullName, req.Email, req.Phone, hashedPassword, false)
 	user.SetEmailVerificationToken(emailToken, s.emailTokenExpiry)
 
 	// 5. Guardar usuario en BD

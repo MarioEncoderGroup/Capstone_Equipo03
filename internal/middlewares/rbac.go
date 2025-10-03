@@ -33,7 +33,28 @@ func (m *RBACMiddleware) RequirePermission(permissionName string) fiber.Handler 
 	return func(c *fiber.Ctx) error {
 		ctx := c.Context()
 
-		// Obtener usuario autenticado del contexto
+		// 1. PRIMERO: Intentar obtener permisos del JWT (guardados en contexto por AuthMiddleware)
+		permissionsInterface := c.Locals("permissions")
+		if permissionsInterface != nil {
+			// Los permisos están en el JWT - validación rápida sin DB
+			if userPermissions, ok := permissionsInterface.([]string); ok {
+				// Verificar si tiene el permiso requerido (case-insensitive)
+				for _, userPermission := range userPermissions {
+					if strings.EqualFold(userPermission, permissionName) {
+						return c.Next()
+					}
+				}
+
+				// Si no tiene el permiso, denegar acceso
+				return c.Status(fiber.StatusForbidden).JSON(sharedTypes.APIResponse{
+					Success: false,
+					Message: "Acceso denegado: permiso insuficiente",
+					Error:   fmt.Sprintf("Requiere el permiso: %s. Permisos actuales: %s", permissionName, strings.Join(userPermissions, ", ")),
+				})
+			}
+		}
+
+		// 2. FALLBACK: Si no hay permisos en el JWT (token viejo o sin tenant), consultar BD
 		user, err := sharedAuth.GetUserFromContext(c)
 		if err != nil {
 			return sharedAuth.HandleAuthError(c, sharedErrors.NewAuthError("Usuario no autenticado", "UNAUTHENTICATED"))
@@ -48,7 +69,7 @@ func (m *RBACMiddleware) RequirePermission(permissionName string) fiber.Handler 
 			}
 		}
 
-		// Verificar si el usuario tiene el permiso
+		// Verificar si el usuario tiene el permiso (desde BD)
 		hasPermission, err := m.checkUserPermission(ctx, user.ID, permissionName, tenantID)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(sharedTypes.APIResponse{
@@ -75,7 +96,30 @@ func (m *RBACMiddleware) RequireRole(roleNames ...string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		ctx := c.Context()
 
-		// Obtener usuario autenticado del contexto
+		// 1. PRIMERO: Intentar obtener roles del JWT (guardados en contexto por AuthMiddleware)
+		rolesInterface := c.Locals("roles")
+		if rolesInterface != nil {
+			// Los roles están en el JWT - validación rápida sin DB
+			if userRoles, ok := rolesInterface.([]string); ok {
+				// Verificar si tiene alguno de los roles requeridos (case-insensitive)
+				for _, userRole := range userRoles {
+					for _, requiredRole := range roleNames {
+						if strings.EqualFold(userRole, requiredRole) {
+							return c.Next()
+						}
+					}
+				}
+
+				// Si no tiene el rol, denegar acceso
+				return c.Status(fiber.StatusForbidden).JSON(sharedTypes.APIResponse{
+					Success: false,
+					Message: "Acceso denegado: rol insuficiente",
+					Error:   fmt.Sprintf("Requiere uno de los roles: %s. Roles actuales: %s", strings.Join(roleNames, ", "), strings.Join(userRoles, ", ")),
+				})
+			}
+		}
+
+		// 2. FALLBACK: Si no hay roles en el JWT (token viejo o sin tenant), consultar BD
 		user, err := sharedAuth.GetUserFromContext(c)
 		if err != nil {
 			return sharedAuth.HandleAuthError(c, sharedErrors.NewAuthError("Usuario no autenticado", "UNAUTHENTICATED"))
@@ -90,7 +134,7 @@ func (m *RBACMiddleware) RequireRole(roleNames ...string) fiber.Handler {
 			}
 		}
 
-		// Verificar si el usuario tiene alguno de los roles
+		// Verificar si el usuario tiene alguno de los roles (desde BD)
 		hasRole, err := m.checkUserRoles(ctx, user.ID, roleNames, tenantID)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(sharedTypes.APIResponse{

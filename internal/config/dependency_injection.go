@@ -72,8 +72,8 @@ func NewDependencies(dbControl *postgresql.PostgresqlClient) (*Dependencies, err
 
 	// 4. Crear servicios de dominio (core layer) siguiendo patrón de referencia
 	userService := userServices.NewUserService(userRepo)
-	roleService := roleServices.NewRoleService(roleRepo)
 	permissionService := permissionServices.NewPermissionService(permissionRepo)
+	roleService := roleServices.NewRoleService(roleRepo, permissionService, rolePermissionRepo)
 	userRoleService := userRoleServices.NewUserRoleService(userRoleRepo, userService, roleService)
 	rolePermissionService := rolePermissionServices.NewRolePermissionService(rolePermissionRepo, roleService, permissionService)
 
@@ -102,7 +102,7 @@ func NewDependencies(dbControl *postgresql.PostgresqlClient) (*Dependencies, err
 	// 6. Crear controllers (adapter layer - entrada HTTP)
 	authController := controllers.NewAuthController(authService, validator)
 	tenantController := controllers.NewTenantController(tenantService, authService, validator)
-	userController := controllers.NewUserController(userService, validator)
+	userController := controllers.NewUserController(userService, roleService, userRoleService, validator)
 	roleController := controllers.NewRoleController(roleService, validator)
 	permissionController := controllers.NewPermissionController(permissionService, validator)
 	userRoleController := controllers.NewUserRoleController(userRoleService, validator)

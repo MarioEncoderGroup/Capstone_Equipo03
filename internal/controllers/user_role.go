@@ -203,10 +203,10 @@ func (urc *UserRoleController) GetRoleUsers(c *fiber.Ctx) error {
 	})
 }
 
-// SyncUserRoles maneja PUT /user-roles/sync/user/:userId - Sincroniza roles de un usuario
+// SyncUserRoles maneja PUT /user-roles/users/:userID/sync - Sincroniza roles de un usuario
 func (urc *UserRoleController) SyncUserRoles(c *fiber.Ctx) error {
 	// Parsear ID del usuario
-	userIDStr := c.Params("userId")
+	userIDStr := c.Params("userID")
 	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(types.APIResponse{
@@ -218,7 +218,7 @@ func (urc *UserRoleController) SyncUserRoles(c *fiber.Ctx) error {
 
 	// Parsear request body
 	var reqBody struct {
-		RoleIDs []string `json:"role_ids" validate:"required"`
+		RoleIDs []string `json:"role_ids"` // Sin required para permitir arrays vacíos (limpiar roles)
 	}
 	if err := c.BodyParser(&reqBody); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(types.APIResponse{

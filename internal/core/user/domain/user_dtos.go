@@ -7,11 +7,13 @@ import (
 
 // CreateUserDto represents the data required to create a user
 type CreateUserDto struct {
-	FullName             string  `json:"full_name" validate:"required,min=2,max=100"`
-	Email                string  `json:"email" validate:"required,email"`
-	Phone                *string `json:"phone,omitempty" validate:"omitempty,min=8,max=15"`
-	IdentificationNumber *string `json:"identification_number,omitempty" validate:"omitempty,min=10,max=12"`
-	Password             string  `json:"password" validate:"required,min=8,max=128"`
+	FullName             string      `json:"full_name" validate:"required,min=2,max=100"`
+	Email                string      `json:"email" validate:"required,email"`
+	Phone                *string     `json:"phone,omitempty" validate:"omitempty,min=8,max=15"`
+	IdentificationNumber *string     `json:"identification_number,omitempty" validate:"omitempty,min=10,max=12"`
+	Password             string      `json:"password" validate:"required,min=8,max=128"`
+	IsActive             *bool       `json:"is_active,omitempty"` // Puntero para diferenciar nil (default true) de false (explícitamente inactivo)
+	RoleIDs              []uuid.UUID `json:"role_ids,omitempty"`  // IDs de roles a asignar al usuario
 }
 
 // UpdateUserDto represents the data to update a user
@@ -45,16 +47,25 @@ type UserResponseDto struct {
 	Updated              time.Time  `json:"updated"`
 }
 
+// RoleResponseDto representa información básica de un rol para incluir en listados
+type RoleResponseDto struct {
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Description *string   `json:"description,omitempty"`
+}
+
 // UserListResponseDto representa un usuario en listados (información mínima)
 type UserListResponseDto struct {
-	ID            uuid.UUID  `json:"id"`
-	Username      string     `json:"username"`
-	FullName      string     `json:"full_name"`
-	Email         string     `json:"email"`
-	EmailVerified bool       `json:"email_verified"`
-	IsActive      bool       `json:"is_active"`
-	LastLogin     *time.Time `json:"last_login,omitempty"`
-	Created       time.Time  `json:"created"`
+	ID            uuid.UUID          `json:"id"`
+	Username      string             `json:"username"`
+	FullName      string             `json:"full_name"`
+	Email         string             `json:"email"`
+	Phone         *string            `json:"phone,omitempty"`
+	EmailVerified bool               `json:"email_verified"`
+	IsActive      bool               `json:"is_active"`
+	Roles         []RoleResponseDto  `json:"roles,omitempty"`
+	LastLogin     *time.Time         `json:"last_login,omitempty"`
+	Created       time.Time          `json:"created"`
 }
 
 // ChangePasswordDto represents the data to change password
@@ -103,8 +114,10 @@ func (u *User) ToUserListResponseDto() *UserListResponseDto {
 		Username:      u.Username,
 		FullName:      u.FullName,
 		Email:         u.Email,
+		Phone:         u.Phone,
 		EmailVerified: u.EmailVerified,
 		IsActive:      u.IsActive,
+		Roles:         []RoleResponseDto{}, // Se cargan después en el controller
 		LastLogin:     u.LastLogin,
 		Created:       u.Created,
 	}

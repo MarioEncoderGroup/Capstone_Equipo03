@@ -1,6 +1,9 @@
 package domain
 
-import "github.com/google/uuid"
+import (
+	"github.com/google/uuid"
+	permissionDomain "github.com/JoseLuis21/mv-backend/internal/core/permission/domain"
+)
 
 // CreateRoleRequest DTO para crear un nuevo rol
 type CreateRoleRequest struct {
@@ -17,14 +20,15 @@ type UpdateRoleRequest struct {
 
 // RoleResponse DTO para respuestas de rol
 type RoleResponse struct {
-	ID          uuid.UUID  `json:"id"`
-	TenantID    *uuid.UUID `json:"tenant_id,omitempty"`
-	Name        string     `json:"name"`
-	Description *string    `json:"description,omitempty"`
-	IsGlobal    bool       `json:"is_global"`
-	IsSystem    bool       `json:"is_system"`
-	Created     string     `json:"created"`     // ISO 8601 format
-	Updated     string     `json:"updated"`     // ISO 8601 format
+	ID          uuid.UUID                              `json:"id"`
+	TenantID    *uuid.UUID                             `json:"tenant_id,omitempty"`
+	Name        string                                 `json:"name"`
+	Description *string                                `json:"description,omitempty"`
+	IsGlobal    bool                                   `json:"is_global"`
+	IsSystem    bool                                   `json:"is_system"`
+	Permissions []permissionDomain.PermissionResponse  `json:"permissions,omitempty"` // Lista de permisos del rol
+	Created     string                                 `json:"created"`                // ISO 8601 format
+	Updated     string                                 `json:"updated"`                // ISO 8601 format
 }
 
 // RoleListResponse DTO para listados de roles
@@ -43,7 +47,7 @@ type RoleFilterRequest struct {
 	Limit    int        `json:"limit" validate:"min=1,max=100"`
 }
 
-// ToResponse convierte una entidad Role a RoleResponse
+// ToResponse convierte una entidad Role a RoleResponse (sin permisos)
 func (r *Role) ToResponse() *RoleResponse {
 	return &RoleResponse{
 		ID:          r.ID,
@@ -55,4 +59,19 @@ func (r *Role) ToResponse() *RoleResponse {
 		Created:     r.Created.Format("2006-01-02T15:04:05Z07:00"),
 		Updated:     r.Updated.Format("2006-01-02T15:04:05Z07:00"),
 	}
+}
+
+// ToResponseWithPermissions convierte Role a RoleResponse incluyendo sus permisos
+func (r *Role) ToResponseWithPermissions(permissions []*permissionDomain.Permission) *RoleResponse {
+	response := r.ToResponse()
+
+	// Convertir permisos a PermissionResponse
+	if len(permissions) > 0 {
+		response.Permissions = make([]permissionDomain.PermissionResponse, len(permissions))
+		for i, perm := range permissions {
+			response.Permissions[i] = *perm.ToResponse()
+		}
+	}
+
+	return response
 }

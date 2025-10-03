@@ -230,14 +230,22 @@ func (r *PostgreSQLUserRepository) Update(ctx context.Context, user *domain.User
 // Delete elimina lógicamente un usuario (soft delete)
 func (r *PostgreSQLUserRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	query := `
-		UPDATE users 
-		SET deleted_at = $2, updated = $2 
+		UPDATE users
+		SET deleted_at = $2, updated = $2
 		WHERE id = $1 AND deleted_at IS NULL`
 
 	now := time.Now()
-	err := r.client.Exec(ctx, query, id, now)
+
+	// Usar Pool.Exec para obtener CommandTag y verificar rows affected
+	result, err := r.client.Pool.Exec(ctx, query, id, now)
 	if err != nil {
 		return fmt.Errorf("error eliminando usuario: %w", err)
+	}
+
+	// Verificar que se afectó al menos una fila
+	rowsAffected := result.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("usuario no encontrado o ya eliminado")
 	}
 
 	return nil

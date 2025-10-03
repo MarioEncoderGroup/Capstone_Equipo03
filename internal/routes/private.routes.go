@@ -35,17 +35,17 @@ func PrivateRoutes(app *fiber.App, dbControl *postgresql.PostgresqlClient, tenan
 	adminUsers := private.Group("/admin/users", rbacMiddleware.RequireRole("administrator"))
 	adminUsers.Get("/", userController.GetUsers)
 	adminUsers.Get("/:id", userController.GetUserByID)
-	adminUsers.Post("/", rbacMiddleware.RequirePermission("create_users"), userController.CreateUser)
-	adminUsers.Put("/:id", rbacMiddleware.RequirePermission("update_users"), userController.UpdateUser)
-	adminUsers.Delete("/:id", rbacMiddleware.RequirePermission("delete_users"), userController.DeleteUser)
+	adminUsers.Post("/", rbacMiddleware.RequirePermission("create-user"), userController.CreateUser)
+	adminUsers.Put("/:id", rbacMiddleware.RequirePermission("update-user"), userController.UpdateUser)
+	adminUsers.Delete("/:id", rbacMiddleware.RequirePermission("delete-user"), userController.DeleteUser)
 
 	// Role management routes
 	roles := private.Group("/roles", rbacMiddleware.RequireRole("administrator"))
 	roles.Get("/", roleController.GetRoles)
 	roles.Get("/:id", roleController.GetRoleByID)
-	roles.Post("/", rbacMiddleware.RequirePermission("create_roles"), roleController.CreateRole)
-	roles.Put("/:id", rbacMiddleware.RequirePermission("update_roles"), roleController.UpdateRole)
-	roles.Delete("/:id", rbacMiddleware.RequirePermission("delete_roles"), roleController.DeleteRole)
+	roles.Post("/", rbacMiddleware.RequirePermission("create-role"), roleController.CreateRole)
+	roles.Put("/:id", rbacMiddleware.RequirePermission("update-role"), roleController.UpdateRole)
+	roles.Delete("/:id", rbacMiddleware.RequirePermission("delete-role"), roleController.DeleteRole)
 
 	// Permission management routes
 	permissions := private.Group("/permissions", rbacMiddleware.RequireRole("administrator"))
@@ -57,24 +57,24 @@ func PrivateRoutes(app *fiber.App, dbControl *postgresql.PostgresqlClient, tenan
 	permissions.Put("/:id", rbacMiddleware.RequireSystemAdmin(), permissionController.UpdatePermission)
 	permissions.Delete("/:id", rbacMiddleware.RequireSystemAdmin(), permissionController.DeletePermission)
 
-	// User-Role assignment routes
+	// User-Role assignment routes (protected by administrator/manager role)
 	userRoles := private.Group("/user-roles", rbacMiddleware.RequireRole("administrator", "manager"))
 	userRoles.Get("/users/:userID/roles", userRoleController.GetUserRoles)
 	userRoles.Get("/roles/:roleID/users", userRoleController.GetRoleUsers)
-	userRoles.Post("/assign", rbacMiddleware.RequirePermission("assign_roles"), userRoleController.CreateUserRole)
-	userRoles.Delete("/unassign", rbacMiddleware.RequirePermission("assign_roles"), userRoleController.DeleteUserRole)
-	userRoles.Put("/users/:userID/sync", rbacMiddleware.RequirePermission("assign_roles"), userRoleController.SyncUserRoles)
-	userRoles.Put("/roles/:roleID/sync", rbacMiddleware.RequirePermission("assign_roles"), userRoleController.SyncRoleUsers)
+	userRoles.Post("/assign", userRoleController.CreateUserRole)
+	userRoles.Delete("/unassign", userRoleController.DeleteUserRole)
+	userRoles.Put("/users/:userID/sync", userRoleController.SyncUserRoles)
+	userRoles.Put("/roles/:roleID/sync", userRoleController.SyncRoleUsers)
 
-	// Role-Permission assignment routes
+	// Role-Permission assignment routes (protected by administrator role)
 	rolePermissions := private.Group("/role-permissions", rbacMiddleware.RequireRole("administrator"))
-	rolePermissions.Get("/roles/:roleID", rbacMiddleware.RequirePermission("view_roles"), rolePermissionController.GetRolePermissions)
-	rolePermissions.Get("/permissions/:permissionID", rbacMiddleware.RequirePermission("view_permissions"), rolePermissionController.GetPermissionRoles)
-	rolePermissions.Post("/assign", rbacMiddleware.RequirePermission("manage_permissions"), rolePermissionController.CreateRolePermission)
-	rolePermissions.Delete("/unassign", rbacMiddleware.RequirePermission("manage_permissions"), rolePermissionController.DeleteRolePermission)
-	rolePermissions.Put("/roles/:roleID/sync", rbacMiddleware.RequirePermission("manage_permissions"), rolePermissionController.SyncRolePermissions)
-	rolePermissions.Get("/check", rbacMiddleware.RequirePermission("view_roles"), rolePermissionController.CheckRoleHasPermission)
-	rolePermissions.Delete("/roles/:roleID/all", rbacMiddleware.RequirePermission("manage_permissions"), rolePermissionController.RemoveAllPermissionsFromRole)
+	rolePermissions.Get("/roles/:roleID", rolePermissionController.GetRolePermissions)
+	rolePermissions.Get("/permissions/:permissionID", rolePermissionController.GetPermissionRoles)
+	rolePermissions.Post("/assign", rolePermissionController.CreateRolePermission)
+	rolePermissions.Delete("/unassign", rolePermissionController.DeleteRolePermission)
+	rolePermissions.Put("/roles/:roleID/sync", rolePermissionController.SyncRolePermissions)
+	rolePermissions.Get("/check", rolePermissionController.CheckRoleHasPermission)
+	rolePermissions.Delete("/roles/:roleID/all", rolePermissionController.RemoveAllPermissionsFromRole)
 
 	// TODO: Implement these tenant controllers
 	// tenant.Post("/create", controllers.CreateTenant)
