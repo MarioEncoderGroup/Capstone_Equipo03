@@ -83,6 +83,7 @@ export function UserModal({ user, roles, groupedPermissions, onClose }: UserModa
           email: formData.email,
           phone: formData.phone,
           password: formData.password,
+          is_active: formData.is_active,
           role_ids: formData.role_ids,
           permission_ids: formData.permission_ids,
         }
@@ -176,8 +177,8 @@ export function UserModal({ user, roles, groupedPermissions, onClose }: UserModa
                 onChange={(e) => setFormData({ ...formData, is_active: e.target.value === 'true' })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
               >
-                <option value="true">Activo</option>
-                <option value="false">Inactivo</option>
+                <option value="true" className="text-gray-900">Activo</option>
+                <option value="false" className="text-gray-900">Inactivo</option>
               </select>
             </div>
           </div>

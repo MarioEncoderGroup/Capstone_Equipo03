@@ -28,6 +28,7 @@ export interface CreateUserRequest {
   email: string
   phone: string
   password: string
+  is_active?: boolean
   role_ids: string[]
   permission_ids: string[]
 }

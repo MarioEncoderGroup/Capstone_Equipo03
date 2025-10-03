@@ -45,7 +45,7 @@ export class UserService {
       permission_ids: data.permission_ids,
     }
 
-    const result = await HttpClient.post<User>(`${this.ENDPOINT}`, sanitizedData)
+    const result = await HttpClient.post<User>(`/admin${this.ENDPOINT}`, sanitizedData)
     if (!result.data) throw new Error('Error al crear usuario')
     return result.data
   }
@@ -104,7 +104,7 @@ export class UserService {
    * Restore user (undo logical delete)
    */
   static async restore(id: string): Promise<User> {
-    const result = await HttpClient.post<User>(`${this.ENDPOINT}/${id}/restore`)
+    const result = await HttpClient.post<User>(`/admin${this.ENDPOINT}/${id}/restore`)
     if (!result.data) throw new Error('Error al restaurar usuario')
     return result.data
   }

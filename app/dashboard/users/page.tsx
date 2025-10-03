@@ -1,7 +1,7 @@
 // MisViáticos - Users Management Page
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
 import { UserService } from '@/services/userService'
 import { RoleService } from '@/services/roleService'
@@ -12,6 +12,7 @@ import { DeleteConfirmModal } from '@/components/shared/DeleteConfirmModal'
 import { UserModal } from './components/UserModal'
 import { Role, GroupedPermission } from '@/types'
 import type { User } from './types'
+import { useStableEffect } from '@/hooks/useStableEffect'
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([])
@@ -27,11 +28,13 @@ export default function UsersPage() {
   const [userToDelete, setUserToDelete] = useState<User | null>(null)
 
   // Ref para evitar múltiples llamadas simultáneas
-  const isLoadingRef = useRef(false)
   const abortControllerRef = useRef<AbortController | null>(null)
 
-  useEffect(() => {
-    // Cleanup function para cancelar requests en progreso
+  // Use stable effect to prevent duplicate calls in React StrictMode
+  useStableEffect(() => {
+    loadData()
+
+    // Cleanup function
     return () => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort()
@@ -39,29 +42,19 @@ export default function UsersPage() {
     }
   }, [])
 
-  useEffect(() => {
-    loadData()
-  }, [])
-
   const loadData = async () => {
-    // Prevenir múltiples llamadas simultáneas
-    if (isLoadingRef.current) {
-      console.log('⏳ Ya hay una carga en progreso, ignorando...')
-      return
-    }
-
     // Cancelar request anterior si existe
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
     }
 
-    isLoadingRef.current = true
+    abortControllerRef.current = new AbortController()
     setIsLoading(true)
     setError(null)
 
     try {
       console.log('🔄 Cargando datos de usuarios, roles y permisos...')
-      
+
       const [usersData, rolesData, groupedPermsData] = await Promise.all([
         UserService.getAll(),
         RoleService.getAll(),
@@ -72,19 +65,17 @@ export default function UsersPage() {
       setRoles(rolesData)
       setGroupedPermissions(groupedPermsData)
       console.log('✅ Datos cargados exitosamente')
-      console.log('📊 Permisos agrupados:', groupedPermsData.length, 'secciones')
     } catch (err) {
       // Ignorar errores de abort
       if (err instanceof Error && err.name === 'AbortError') {
         console.log('🚫 Request cancelado')
         return
       }
-      
+
       console.error('❌ Error cargando datos:', err)
       setError(err instanceof Error ? err.message : 'Error al cargar datos')
     } finally {
       setIsLoading(false)
-      isLoadingRef.current = false
     }
   }
 
