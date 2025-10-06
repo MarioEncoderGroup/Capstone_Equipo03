@@ -469,6 +469,7 @@ func (s *roleService) GetUserRoles(ctx context.Context, userID uuid.UUID, tenant
 }
 
 // CheckRoleExistsByID verifica si un rol existe por ID
+// Acepta roles globales (tenant_id NULL) para ser asignados a cualquier tenant
 func (s *roleService) CheckRoleExistsByID(ctx context.Context, id, tenantID string) (bool, error) {
 	// Validar UUID
 	roleID, err := uuid.Parse(id)
@@ -483,19 +484,26 @@ func (s *roleService) CheckRoleExistsByID(ctx context.Context, id, tenantID stri
 		return false, nil
 	}
 
-	// Verificar tenant si se especifica
-	if tenantID != "" {
-		tid, err := uuid.Parse(tenantID)
-		if err != nil {
-			return false, fmt.Errorf("ID de tenant inválido: %w", err)
-		}
-
-		if role.TenantID == nil || *role.TenantID != tid {
-			return false, nil
-		}
+	// Si no se especifica tenant, solo verificar que el rol existe
+	if tenantID == "" {
+		return true, nil
 	}
 
-	return true, nil
+	// Si se especifica tenant, el rol puede ser:
+	// 1. Global (tenant_id NULL) → válido para cualquier tenant
+	// 2. Específico del tenant (tenant_id = tenantID) → válido solo para ese tenant
+	tid, err := uuid.Parse(tenantID)
+	if err != nil {
+		return false, fmt.Errorf("ID de tenant inválido: %w", err)
+	}
+
+	// Aceptar si es rol global O si pertenece al tenant específico
+	if role.TenantID == nil || *role.TenantID == tid {
+		return true, nil
+	}
+
+	// Rechazar si el rol pertenece a otro tenant
+	return false, nil
 }
 
 // CheckRoleExistsByName verifica si un rol existe por nombre
