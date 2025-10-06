@@ -12,8 +12,10 @@ import { DeleteConfirmModal } from '@/components/shared/DeleteConfirmModal'
 import { RoleModal } from './components/RoleModal'
 import type { Role, GroupedPermission } from '@/types'
 import type { User } from '@/app/dashboard/users/types'
+import { RoleGuard } from '@/components/guards/RoleGuard'
+import { ROLES } from '@/lib/rbac/roles'
 
-export default function RolesPage() {
+function RolesPageContent() {
   const [roles, setRoles] = useState<Role[]>([])
   const [groupedPermissions, setGroupedPermissions] = useState<GroupedPermission[]>([])
   const [users, setUsers] = useState<User[]>([])
@@ -206,5 +208,13 @@ export default function RolesPage() {
         />
       )}
     </div>
+  )
+}
+
+export default function RolesPage() {
+  return (
+    <RoleGuard allowedRoles={[ROLES.ADMINISTRATOR]}>
+      <RolesPageContent />
+    </RoleGuard>
   )
 }

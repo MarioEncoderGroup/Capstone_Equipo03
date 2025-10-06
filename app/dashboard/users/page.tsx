@@ -13,8 +13,10 @@ import { UserModal } from './components/UserModal'
 import { Role, GroupedPermission } from '@/types'
 import type { User } from './types'
 import { useStableEffect } from '@/hooks/useStableEffect'
+import { RoleGuard } from '@/components/guards/RoleGuard'
+import { ROLES } from '@/lib/rbac/roles'
 
-export default function UsersPage() {
+function UsersPageContent() {
   const [users, setUsers] = useState<User[]>([])
   const [roles, setRoles] = useState<Role[]>([])
   const [groupedPermissions, setGroupedPermissions] = useState<GroupedPermission[]>([])
@@ -261,5 +263,13 @@ export default function UsersPage() {
         />
       )}
     </div>
+  )
+}
+
+export default function UsersPage() {
+  return (
+    <RoleGuard allowedRoles={[ROLES.ADMINISTRATOR]}>
+      <UsersPageContent />
+    </RoleGuard>
   )
 }
