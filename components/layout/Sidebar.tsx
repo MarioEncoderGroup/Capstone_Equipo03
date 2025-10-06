@@ -12,23 +12,41 @@ import {
   BuildingOfficeIcon,
 } from '@heroicons/react/24/outline'
 import { useAuth } from '@/hooks/useAuth'
+import { useUserRoles } from '@/hooks/useUserRoles'
+import { filterNavigationItems } from '@/lib/rbac/navigationPermissions'
+import { ROLES, type Role } from '@/lib/rbac/roles'
 
 interface SidebarItem {
   name: string
   href: string
   icon: React.ComponentType<{ className?: string }>
+  allowedRoles?: Role[]
 }
 
 const navigationItems: SidebarItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
-  { name: 'Usuarios', href: '/dashboard/users', icon: UserGroupIcon },
-  { name: 'Roles', href: '/dashboard/roles', icon: ShieldCheckIcon },
+  {
+    name: 'Usuarios',
+    href: '/dashboard/users',
+    icon: UserGroupIcon,
+    allowedRoles: [ROLES.ADMINISTRATOR], // Solo administradores
+  },
+  {
+    name: 'Roles',
+    href: '/dashboard/roles',
+    icon: ShieldCheckIcon,
+    allowedRoles: [ROLES.ADMINISTRATOR], // Solo administradores
+  },
   { name: 'Configuración', href: '/dashboard/settings', icon: Cog6ToothIcon },
 ]
 
 export function Sidebar() {
   const pathname = usePathname()
   const { logout } = useAuth()
+  const { roles } = useUserRoles()
+
+  // Filtrar items de navegación según roles del usuario
+  const visibleItems = filterNavigationItems(navigationItems, roles)
 
   return (
     <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
@@ -41,7 +59,7 @@ export function Sidebar() {
 
         {/* Navigation */}
         <nav className="mt-8 flex-1 px-2 space-y-1">
-          {navigationItems.map((item) => {
+          {visibleItems.map((item) => {
             const isActive = pathname === item.href
             const Icon = item.icon
 
