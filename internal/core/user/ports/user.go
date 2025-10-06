@@ -106,7 +106,8 @@ type UserService interface {
 	DeleteUser(ctx context.Context, id uuid.UUID) error
 
 	// CreateUserFromDto crea un usuario desde un DTO con validaciones
-	CreateUserFromDto(ctx context.Context, dto *domain.CreateUserDto) (*domain.User, error)
+	// Si tenantID no es nil, automáticamente asigna el usuario al tenant
+	CreateUserFromDto(ctx context.Context, dto *domain.CreateUserDto, tenantID *uuid.UUID) (*domain.User, error)
 
 	UpdateUserFromDto(ctx context.Context, id uuid.UUID, dto *domain.UpdateUserDto) (*domain.User, error)
 

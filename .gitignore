@@ -74,3 +74,5 @@ mv-architecture-agent.md
 *-architecture.md
 *.md
 *.claude
+railway.json
+railway.toml

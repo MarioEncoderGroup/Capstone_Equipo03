@@ -91,7 +91,8 @@ func (s *userService) DeleteUser(ctx context.Context, id uuid.UUID) error {
 }
 
 // CreateUserFromDto crea un usuario desde un DTO con validaciones
-func (s *userService) CreateUserFromDto(ctx context.Context, dto *domain.CreateUserDto) (*domain.User, error) {
+// Si tenantID no es nil, automáticamente asigna el usuario al tenant
+func (s *userService) CreateUserFromDto(ctx context.Context, dto *domain.CreateUserDto, tenantID *uuid.UUID) (*domain.User, error) {
 	// Verificar que el email no existe
 	exists, err := s.userRepo.ExistsByEmail(ctx, dto.Email)
 	if err != nil {
@@ -112,13 +113,13 @@ func (s *userService) CreateUserFromDto(ctx context.Context, dto *domain.CreateU
 	if dto.Phone != nil {
 		phone = *dto.Phone
 	}
-	
+
 	// Determinar isActive (si no se envía, default true para usuarios creados por admin)
 	isActive := true
 	if dto.IsActive != nil {
 		isActive = *dto.IsActive
 	}
-	
+
 	user := domain.NewUser(dto.FullName, dto.Email, phone, hashedPassword, isActive)
 
 	// Verificar y asegurar username único
@@ -155,6 +156,17 @@ func (s *userService) CreateUserFromDto(ctx context.Context, dto *domain.CreateU
 	// Crear usuario en la base de datos
 	if err := s.userRepo.Create(ctx, user); err != nil {
 		return nil, fmt.Errorf("error creando usuario: %w", err)
+	}
+
+	// Si se proporcionó un tenant_id, asignar automáticamente el usuario al tenant
+	if tenantID != nil {
+		tenantUser := domain.NewTenantUser(*tenantID, user.ID)
+
+		if err := s.userRepo.AddUserToTenant(ctx, tenantUser); err != nil {
+			// Si falla la asignación al tenant, eliminar el usuario creado (rollback manual)
+			_ = s.userRepo.Delete(ctx, user.ID)
+			return nil, fmt.Errorf("error asignando usuario al tenant: %w", err)
+		}
 	}
 
 	return user, nil

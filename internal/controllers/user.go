@@ -161,8 +161,20 @@ func (uc *UserController) CreateUser(c *fiber.Ctx) error {
 		})
 	}
 
-	// Crear usuario a través del servicio
-	user, err := uc.userService.CreateUserFromDto(c.Context(), &req)
+	// Extraer tenant_id del contexto JWT (del admin que crea el usuario)
+	var adminTenantID *uuid.UUID
+	tenantIDLocal := c.Locals("tenantID")
+	if tenantIDLocal != nil {
+		if tenantIDStr, ok := tenantIDLocal.(string); ok && tenantIDStr != "" {
+			tenantUUID, err := uuid.Parse(tenantIDStr)
+			if err == nil {
+				adminTenantID = &tenantUUID
+			}
+		}
+	}
+
+	// Crear usuario a través del servicio (automáticamente asignado al tenant del admin)
+	user, err := uc.userService.CreateUserFromDto(c.Context(), &req, adminTenantID)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(types.APIResponse{
 			Success: false,
