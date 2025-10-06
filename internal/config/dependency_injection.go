@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"github.com/JoseLuis21/mv-backend/internal/controllers"
 	"github.com/JoseLuis21/mv-backend/internal/middlewares"
 	"github.com/JoseLuis21/mv-backend/internal/shared/email"
@@ -96,10 +97,20 @@ func NewDependencies(dbControl *postgresql.PostgresqlClient) (*Dependencies, err
 	regionService := regionServices.NewRegionService(regionRepo)
 	communeService := communeServices.NewCommuneService(communeRepo)
 
-	// 5. Crear middlewares
+	// 5. Inicializar roles y permisos del sistema
+	// Esto debe ejecutarse al inicio de la aplicación para garantizar que existan los roles necesarios
+	ctx := context.Background()
+	if err := permissionService.InitializeSystemPermissions(ctx); err != nil {
+		return nil, err
+	}
+	if err := roleService.InitializeSystemRoles(ctx); err != nil {
+		return nil, err
+	}
+
+	// 6. Crear middlewares
 	rbacMiddleware := middlewares.NewRBACMiddleware(roleService, permissionService)
 
-	// 6. Crear controllers (adapter layer - entrada HTTP)
+	// 7. Crear controllers (adapter layer - entrada HTTP)
 	authController := controllers.NewAuthController(authService, validator)
 	tenantController := controllers.NewTenantController(tenantService, authService, validator)
 	userController := controllers.NewUserController(userService, roleService, userRoleService, validator)

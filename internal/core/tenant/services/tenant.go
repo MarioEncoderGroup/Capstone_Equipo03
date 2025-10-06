@@ -109,12 +109,23 @@ func (s *tenantService) CreateTenantFromDTO(ctx context.Context, dto *tenantDoma
 		return nil, fmt.Errorf("ya existe un tenant con el RUT proporcionado")
 	}
 
+	// 2. Validar country_id
 	countryID, err := uuid.Parse(dto.CountryID)
 	if err != nil {
 		return nil, fmt.Errorf("country_id inválido: %w", err)
 	}
 
-	// 3. Crear entidad de tenant
+	// 3. Verificar que existe el rol "administrator" global ANTES de crear el tenant
+	// Esto previene crear un tenant sin poder asignar el rol administrator
+	adminRole, err := s.roleService.GetRoleByName(ctx, "administrator", nil)
+	if err != nil {
+		return nil, fmt.Errorf("error obteniendo rol administrator global: %w. Asegúrate de ejecutar las migraciones del sistema", err)
+	}
+	if adminRole == nil {
+		return nil, fmt.Errorf("el rol administrator no existe en el sistema. Ejecuta InitializeSystemRoles primero")
+	}
+
+	// 4. Crear entidad de tenant
 	tenant := &tenantDomain.Tenant{
 		ID:           uuid.New(),
 		Rut:          dto.Rut,
@@ -134,45 +145,45 @@ func (s *tenantService) CreateTenantFromDTO(ctx context.Context, dto *tenantDoma
 		UpdatedBy:    userID,
 	}
 
-	// 4. Crear tenant en la base de datos control
+	// 5. Crear tenant en la base de datos control
 	if err := s.tenantRepo.Create(ctx, tenant); err != nil {
 		return nil, fmt.Errorf("error creando tenant: %w", err)
 	}
 
-	// 5. Asociar usuario al tenant (crear entrada en tenant_users)
+	// 6. Asociar usuario al tenant (crear entrada en tenant_users)
 	tenantUser := &userDomain.TenantUser{
 		ID:       uuid.New(),
 		TenantID: tenant.ID,
 		UserID:   userID,
 	}
 	if err := s.userService.AddUserToTenant(ctx, tenantUser); err != nil {
+		// Rollback: eliminar tenant si falla la asociación del usuario
+		_ = s.tenantRepo.Delete(ctx, tenant.ID)
 		return nil, fmt.Errorf("error asociando usuario al tenant: %w", err)
 	}
 
-	// 6. Asignar rol "administrator" al usuario creador del tenant (usuario maestro)
-	adminRole, err := s.roleService.GetRoleByName(ctx, "administrator", &tenant.ID)
-	if err != nil {
-		// Si no existe el rol administrator para este tenant, buscar el global
-		adminRole, err = s.roleService.GetRoleByName(ctx, "administrator", nil)
-		if err != nil {
-			return nil, fmt.Errorf("error obteniendo rol administrator: %w", err)
-		}
-	}
-
-	// Crear la relación usuario-rol (asignar rol Administrator al usuario)
+	// 7. Asignar rol "administrator" al usuario creador del tenant (usuario maestro)
+	// Crear la relación usuario-rol con el tenant específico
 	createUserRoleDto := &userRoleDomain.CreateUserRoleDto{
 		UserID:   userID,
 		RoleID:   adminRole.ID,
-		TenantID: &tenant.ID,
+		TenantID: &tenant.ID, // Asignar rol administrator para este tenant específico
 	}
 
 	if _, err := s.userRoleService.CreateUserRole(ctx, createUserRoleDto); err != nil {
-		return nil, fmt.Errorf("error asignando rol Administrator al usuario: %w", err)
+		// Rollback: eliminar tenant_user y tenant si falla la asignación del rol
+		_ = s.userService.RemoveUserFromTenant(ctx, userID, tenant.ID)
+		_ = s.tenantRepo.Delete(ctx, tenant.ID)
+		return nil, fmt.Errorf("error asignando rol administrator al usuario: %w", err)
 	}
 
-	// 7. Crear base de datos del tenant dinámicamente
+	// 8. Crear base de datos del tenant dinámicamente
 	// TODO: Implementar cuando tengamos el sistema de migraciones para tenants
 	// if err := s.tenantRepo.CreateTenantDatabase(ctx, tenant.TenantName); err != nil {
+	//     // Rollback completo
+	//     _ = s.userRoleService.DeleteUserRole(ctx, userID, adminRole.ID, &tenant.ID)
+	//     _ = s.userService.RemoveUserFromTenant(ctx, userID, tenant.ID)
+	//     _ = s.tenantRepo.Delete(ctx, tenant.ID)
 	//     return nil, fmt.Errorf("error creando base de datos del tenant: %w", err)
 	// }
 

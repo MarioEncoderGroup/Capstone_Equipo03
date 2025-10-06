@@ -96,6 +96,9 @@ type UserService interface {
 	// AddUserToTenant asocia un usuario a un tenant
 	AddUserToTenant(ctx context.Context, tenantUser *domain.TenantUser) error
 
+	// RemoveUserFromTenant desasocia un usuario de un tenant (soft delete)
+	RemoveUserFromTenant(ctx context.Context, userID, tenantID uuid.UUID) error
+
 	// GetUsers obtiene una lista paginada de usuarios con validaciones de negocio
 	GetUsers(ctx context.Context, offset, limit int, sortBy, sortDir, search string) ([]*domain.User, int64, error)
 

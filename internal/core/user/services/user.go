@@ -75,6 +75,11 @@ func (s *userService) AddUserToTenant(ctx context.Context, tenantUser *domain.Te
 	return s.userRepo.AddUserToTenant(ctx, tenantUser)
 }
 
+// RemoveUserFromTenant desasocia un usuario de un tenant (soft delete)
+func (s *userService) RemoveUserFromTenant(ctx context.Context, userID, tenantID uuid.UUID) error {
+	return s.userRepo.RemoveUserFromTenant(ctx, userID, tenantID)
+}
+
 // GetUsers obtiene una lista paginada de usuarios con validaciones de negocio
 func (s *userService) GetUsers(ctx context.Context, offset, limit int, sortBy, sortDir, search string) ([]*domain.User, int64, error) {
 	return s.userRepo.GetUsers(ctx, offset, limit, sortBy, sortDir, search)
