@@ -36,15 +36,24 @@ func (rc *RoleController) GetRoles(c *fiber.Ctx) error {
 		})
 	}
 
-	// Extraer TenantID del contexto (puede ser nil para roles globales)
+	// Extraer TenantID del contexto (OBLIGATORIO para aislamiento multi-tenant)
 	var tenantID *uuid.UUID
-	if tenantIDStr := c.Locals("tenantId"); tenantIDStr != nil {
-		if tenantIDStr != "" {
-			tid, err := uuid.Parse(tenantIDStr.(string))
+	if tenantIDStr := c.Locals("tenantID"); tenantIDStr != nil {
+		if str, ok := tenantIDStr.(string); ok && str != "" {
+			tid, err := uuid.Parse(str)
 			if err == nil {
 				tenantID = &tid
 			}
 		}
+	}
+
+	// Validar que el tenant esté seleccionado
+	if tenantID == nil {
+		return c.Status(fiber.StatusBadRequest).JSON(types.APIResponse{
+			Success: false,
+			Message: "Tenant no seleccionado",
+			Error:   "TENANT_REQUIRED",
+		})
 	}
 
 	// Crear filtro de roles
@@ -118,13 +127,29 @@ func (rc *RoleController) CreateRole(c *fiber.Ctx) error {
 		})
 	}
 
-	// Extraer TenantID del contexto para roles de tenant
-	if tenantIDStr := c.Locals("tenantId"); tenantIDStr != nil && tenantIDStr != "" {
-		tenantID, err := uuid.Parse(tenantIDStr.(string))
-		if err == nil {
-			req.TenantID = &tenantID
-		}
+	// IMPORTANTE: Inyectar TenantID del contexto (OBLIGATORIO para aislamiento multi-tenant)
+	// Los roles creados por usuarios SIEMPRE pertenecen a su tenant
+	// Solo el sistema puede crear roles globales (tenant_id = NULL)
+	tenantIDStr := c.Locals("tenantID")
+	if tenantIDStr == nil || tenantIDStr == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(types.APIResponse{
+			Success: false,
+			Message: "Tenant no seleccionado",
+			Error:   "TENANT_REQUIRED",
+		})
 	}
+
+	tenantID, err := uuid.Parse(tenantIDStr.(string))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(types.APIResponse{
+			Success: false,
+			Message: "Tenant ID inválido",
+			Error:   "INVALID_TENANT_ID",
+		})
+	}
+
+	// Inyectar tenant_id del usuario autenticado al rol que se va a crear
+	req.TenantID = &tenantID
 
 	// Validar estructura de datos
 	if errors := rc.validator.ValidateStruct(req); len(errors) > 0 {
@@ -307,19 +332,27 @@ func (rc *RoleController) GetUserRoles(c *fiber.Ctx) error {
 		})
 	}
 
-	// Extraer TenantID del contexto (puede ser nil para roles globales)
-	var tenantID *uuid.UUID
-	if tenantIDStr := c.Locals("tenantId"); tenantIDStr != nil {
-		if tenantIDStr != "" {
-			tid, err := uuid.Parse(tenantIDStr.(string))
-			if err == nil {
-				tenantID = &tid
-			}
-		}
+	// Extraer TenantID del contexto (OBLIGATORIO)
+	tenantIDStr := c.Locals("tenantID")
+	if tenantIDStr == nil || tenantIDStr == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(types.APIResponse{
+			Success: false,
+			Message: "Tenant no seleccionado",
+			Error:   "TENANT_REQUIRED",
+		})
 	}
 
-	// Obtener roles del usuario desde el servicio
-	roles, err := rc.roleService.GetUserRoles(c.Context(), userID, tenantID)
+	tenantID, err := uuid.Parse(tenantIDStr.(string))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(types.APIResponse{
+			Success: false,
+			Message: "Tenant ID inválido",
+			Error:   "INVALID_TENANT_ID",
+		})
+	}
+
+	// Obtener roles del usuario desde el servicio (filtrados por tenant)
+	roles, err := rc.roleService.GetUserRoles(c.Context(), userID, &tenantID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(types.APIResponse{
 			Success: false,

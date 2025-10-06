@@ -36,7 +36,7 @@ func (urc *UserRoleController) CreateUserRole(c *fiber.Ctx) error {
 	}
 
 	// Extraer TenantID del contexto si está disponible
-	if tenantIDStr := c.Locals("tenantId"); tenantIDStr != nil && tenantIDStr != "" {
+	if tenantIDStr := c.Locals("tenantID"); tenantIDStr != nil && tenantIDStr != "" {
 		tenantID, err := uuid.Parse(tenantIDStr.(string))
 		if err == nil {
 			req.TenantID = &tenantID
@@ -103,7 +103,7 @@ func (urc *UserRoleController) DeleteUserRole(c *fiber.Ctx) error {
 
 	// Extraer TenantID del contexto si está disponible
 	var tenantID *uuid.UUID
-	if tenantIDStr := c.Locals("tenantId"); tenantIDStr != nil && tenantIDStr != "" {
+	if tenantIDStr := c.Locals("tenantID"); tenantIDStr != nil && tenantIDStr != "" {
 		tid, err := uuid.Parse(tenantIDStr.(string))
 		if err == nil {
 			tenantID = &tid
@@ -140,7 +140,7 @@ func (urc *UserRoleController) GetUserRoles(c *fiber.Ctx) error {
 
 	// Extraer TenantID del contexto si está disponible
 	var tenantID *uuid.UUID
-	if tenantIDStr := c.Locals("tenantId"); tenantIDStr != nil && tenantIDStr != "" {
+	if tenantIDStr := c.Locals("tenantID"); tenantIDStr != nil && tenantIDStr != "" {
 		tid, err := uuid.Parse(tenantIDStr.(string))
 		if err == nil {
 			tenantID = &tid
@@ -179,7 +179,7 @@ func (urc *UserRoleController) GetRoleUsers(c *fiber.Ctx) error {
 
 	// Extraer TenantID del contexto si está disponible
 	var tenantID *uuid.UUID
-	if tenantIDStr := c.Locals("tenantId"); tenantIDStr != nil && tenantIDStr != "" {
+	if tenantIDStr := c.Locals("tenantID"); tenantIDStr != nil && tenantIDStr != "" {
 		tid, err := uuid.Parse(tenantIDStr.(string))
 		if err == nil {
 			tenantID = &tid
@@ -244,7 +244,7 @@ func (urc *UserRoleController) SyncUserRoles(c *fiber.Ctx) error {
 
 	// Extraer TenantID del contexto si está disponible
 	var tenantID *uuid.UUID
-	if tenantIDStr := c.Locals("tenantId"); tenantIDStr != nil && tenantIDStr != "" {
+	if tenantIDStr := c.Locals("tenantID"); tenantIDStr != nil && tenantIDStr != "" {
 		tid, err := uuid.Parse(tenantIDStr.(string))
 		if err == nil {
 			tenantID = &tid
@@ -331,7 +331,7 @@ func (urc *UserRoleController) SyncRoleUsers(c *fiber.Ctx) error {
 
 	// Extraer TenantID del contexto si está disponible
 	var tenantID *uuid.UUID
-	if tenantIDStr := c.Locals("tenantId"); tenantIDStr != nil && tenantIDStr != "" {
+	if tenantIDStr := c.Locals("tenantID"); tenantIDStr != nil && tenantIDStr != "" {
 		tid, err := uuid.Parse(tenantIDStr.(string))
 		if err == nil {
 			tenantID = &tid
@@ -403,7 +403,7 @@ func (urc *UserRoleController) CheckUserHasRole(c *fiber.Ctx) error {
 
 	// Extraer TenantID del contexto si está disponible
 	var tenantID *uuid.UUID
-	if tenantIDStr := c.Locals("tenantId"); tenantIDStr != nil && tenantIDStr != "" {
+	if tenantIDStr := c.Locals("tenantID"); tenantIDStr != nil && tenantIDStr != "" {
 		tid, err := uuid.Parse(tenantIDStr.(string))
 		if err == nil {
 			tenantID = &tid
@@ -446,7 +446,7 @@ func (urc *UserRoleController) RemoveUserFromAllRoles(c *fiber.Ctx) error {
 
 	// Extraer TenantID del contexto si está disponible
 	var tenantID *uuid.UUID
-	if tenantIDStr := c.Locals("tenantId"); tenantIDStr != nil && tenantIDStr != "" {
+	if tenantIDStr := c.Locals("tenantID"); tenantIDStr != nil && tenantIDStr != "" {
 		tid, err := uuid.Parse(tenantIDStr.(string))
 		if err == nil {
 			tenantID = &tid
@@ -483,7 +483,7 @@ func (urc *UserRoleController) RemoveAllUsersFromRole(c *fiber.Ctx) error {
 
 	// Extraer TenantID del contexto si está disponible
 	var tenantID *uuid.UUID
-	if tenantIDStr := c.Locals("tenantId"); tenantIDStr != nil && tenantIDStr != "" {
+	if tenantIDStr := c.Locals("tenantID"); tenantIDStr != nil && tenantIDStr != "" {
 		tid, err := uuid.Parse(tenantIDStr.(string))
 		if err == nil {
 			tenantID = &tid

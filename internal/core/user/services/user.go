@@ -81,8 +81,13 @@ func (s *userService) RemoveUserFromTenant(ctx context.Context, userID, tenantID
 }
 
 // GetUsers obtiene una lista paginada de usuarios con validaciones de negocio
-func (s *userService) GetUsers(ctx context.Context, offset, limit int, sortBy, sortDir, search string) ([]*domain.User, int64, error) {
-	return s.userRepo.GetUsers(ctx, offset, limit, sortBy, sortDir, search)
+// tenantID es obligatorio para garantizar aislamiento multi-tenant
+func (s *userService) GetUsers(ctx context.Context, tenantID *uuid.UUID, offset, limit int, sortBy, sortDir, search string) ([]*domain.User, int64, error) {
+	// Validar que se proporcione tenant_id (seguridad multi-tenant)
+	if tenantID == nil {
+		return nil, 0, fmt.Errorf("tenant_id es requerido para consultar usuarios")
+	}
+	return s.userRepo.GetUsers(ctx, tenantID, offset, limit, sortBy, sortDir, search)
 }
 
 // CheckUserExists verifica si un usuario existe por ID

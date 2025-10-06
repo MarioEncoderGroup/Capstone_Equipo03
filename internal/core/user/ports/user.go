@@ -55,8 +55,9 @@ type UserRepository interface {
 	// RemoveUserFromTenant desasocia un usuario de un tenant (soft delete)
 	RemoveUserFromTenant(ctx context.Context, userID, tenantID uuid.UUID) error
 
-	// GetUsers obtiene una lista paginada de usuarios
-	GetUsers(ctx context.Context, offset, limit int, sortBy, sortDir, search string) ([]*domain.User, int64, error)
+	// GetUsers obtiene una lista paginada de usuarios filtrados por tenant
+	// tenantID es obligatorio para garantizar aislamiento multi-tenant
+	GetUsers(ctx context.Context, tenantID *uuid.UUID, offset, limit int, sortBy, sortDir, search string) ([]*domain.User, int64, error)
 
 	// CheckUserExists verifica si un usuario existe por ID
 	CheckUserExists(ctx context.Context, id uuid.UUID) (bool, error)
@@ -100,7 +101,8 @@ type UserService interface {
 	RemoveUserFromTenant(ctx context.Context, userID, tenantID uuid.UUID) error
 
 	// GetUsers obtiene una lista paginada de usuarios con validaciones de negocio
-	GetUsers(ctx context.Context, offset, limit int, sortBy, sortDir, search string) ([]*domain.User, int64, error)
+	// tenantID es obligatorio para garantizar aislamiento multi-tenant
+	GetUsers(ctx context.Context, tenantID *uuid.UUID, offset, limit int, sortBy, sortDir, search string) ([]*domain.User, int64, error)
 
 	// CheckUserExists verifica si un usuario existe por ID
 	CheckUserExists(ctx context.Context, id uuid.UUID) (bool, error)

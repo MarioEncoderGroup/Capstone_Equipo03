@@ -165,10 +165,14 @@ func (r *PostgreSQLRoleRepository) GetAllRoles(ctx context.Context, filter *doma
 	args := []interface{}{}
 	argIndex := 1
 
+	// Filtrar: roles globales (NULL) + roles del tenant específico
 	if filter.TenantID != nil {
-		whereClause += fmt.Sprintf(" AND tenant_id = $%d", argIndex)
+		whereClause += fmt.Sprintf(" AND (tenant_id = $%d OR tenant_id IS NULL)", argIndex)
 		args = append(args, *filter.TenantID)
 		argIndex++
+	} else {
+		// Si no hay tenant_id, solo retornar roles globales
+		whereClause += " AND tenant_id IS NULL"
 	}
 
 	if filter.Name != "" {

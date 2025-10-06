@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/JoseLuis21/mv-backend/internal/core/user/domain"
 	"github.com/JoseLuis21/mv-backend/internal/core/user/ports"
 	"github.com/JoseLuis21/mv-backend/internal/libraries/postgresql"
 	sharedErrors "github.com/JoseLuis21/mv-backend/internal/shared/errors"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 // PostgreSQLUserRepository implementa UserRepository usando PostgreSQL
@@ -254,7 +254,7 @@ func (r *PostgreSQLUserRepository) Delete(ctx context.Context, id uuid.UUID) err
 // ExistsByEmail verifica si existe un usuario con el email dado
 func (r *PostgreSQLUserRepository) ExistsByEmail(ctx context.Context, email string) (bool, error) {
 	query := `SELECT EXISTS(SELECT 1 FROM users WHERE email = $1 AND deleted_at IS NULL)`
-	
+
 	var exists bool
 	err := r.client.QueryRow(ctx, query, email).Scan(&exists)
 	if err != nil {
@@ -267,7 +267,7 @@ func (r *PostgreSQLUserRepository) ExistsByEmail(ctx context.Context, email stri
 // ExistsByUsername verifica si existe un usuario con el username dado
 func (r *PostgreSQLUserRepository) ExistsByUsername(ctx context.Context, username string) (bool, error) {
 	query := `SELECT EXISTS(SELECT 1 FROM users WHERE username = $1 AND deleted_at IS NULL)`
-	
+
 	var exists bool
 	err := r.client.QueryRow(ctx, query, username).Scan(&exists)
 	if err != nil {
@@ -352,7 +352,7 @@ func (r *PostgreSQLUserRepository) UserHasAccessToTenant(ctx context.Context, us
 			SELECT 1 FROM tenant_users 
 			WHERE user_id = $1 AND tenant_id = $2 AND deleted_at IS NULL
 		)`
-	
+
 	var exists bool
 	err := r.client.QueryRow(ctx, query, userID, tenantID).Scan(&exists)
 	if err != nil {
@@ -428,14 +428,31 @@ func (r *PostgreSQLUserRepository) scanTenantUser(rows pgx.Rows) (*domain.Tenant
 	return tenantUser, nil
 }
 
-// GetUsers obtiene una lista paginada de usuarios
-func (r *PostgreSQLUserRepository) GetUsers(ctx context.Context, offset, limit int, sortBy, sortDir, search string) ([]*domain.User, int64, error) {
-	// Primero obtener el total de registros
-	countQuery := `SELECT COUNT(*) FROM users WHERE deleted_at IS NULL`
+// GetUsers obtiene una lista paginada de usuarios filtrados por tenant
+// IMPORTANTE: Usa JOIN con tenant_users para garantizar aislamiento multi-tenant
+func (r *PostgreSQLUserRepository) GetUsers(ctx context.Context, tenantID *uuid.UUID, offset, limit int, sortBy, sortDir, search string) ([]*domain.User, int64, error) {
+	// Validación de seguridad: tenant_id es obligatorio
+	if tenantID == nil {
+		return nil, 0, fmt.Errorf("tenant_id es requerido para consultar usuarios")
+	}
+
+	// Query para contar usuarios del tenant
+	countQuery := `
+		SELECT COUNT(DISTINCT u.id) 
+		FROM users u
+		INNER JOIN tenant_users tu ON u.id = tu.user_id
+		WHERE tu.tenant_id = $1 
+		  AND tu.deleted_at IS NULL 
+		  AND u.deleted_at IS NULL`
+
 	var countArgs []interface{}
+	countArgs = append(countArgs, *tenantID)
+	argIndex := 2
 
 	if search != "" {
-		countQuery += ` AND (full_name ILIKE $1 OR email ILIKE $1 OR username ILIKE $1)`
+		countQuery += ` AND (u.full_name ILIKE $` + fmt.Sprintf("%d", argIndex) +
+			` OR u.email ILIKE $` + fmt.Sprintf("%d", argIndex) +
+			` OR u.username ILIKE $` + fmt.Sprintf("%d", argIndex) + `)`
 		countArgs = append(countArgs, "%"+search+"%")
 	}
 
@@ -445,28 +462,32 @@ func (r *PostgreSQLUserRepository) GetUsers(ctx context.Context, offset, limit i
 		return nil, 0, fmt.Errorf("error contando usuarios: %w", err)
 	}
 
-	// Construir query principal
+	// Query principal con JOIN para filtrar por tenant
 	query := `
-		SELECT id, username, phone, full_name, identification_number, email,
-			   email_token, email_token_expires, email_verified, password,
-			   password_reset_token, password_reset_expires, last_password_change,
-			   last_login, bank_id, bank_account_number, bank_account_type,
-			   image_url, is_active, created, updated, deleted_at
-		FROM users
-		WHERE deleted_at IS NULL`
+		SELECT DISTINCT u.id, u.username, u.phone, u.full_name, u.identification_number, u.email,
+			   u.email_token, u.email_token_expires, u.email_verified, u.password,
+			   u.password_reset_token, u.password_reset_expires, u.last_password_change,
+			   u.last_login, u.bank_id, u.bank_account_number, u.bank_account_type,
+			   u.image_url, u.is_active, u.created, u.updated, u.deleted_at
+		FROM users u
+		INNER JOIN tenant_users tu ON u.id = tu.user_id
+		WHERE tu.tenant_id = $1 
+		  AND tu.deleted_at IS NULL 
+		  AND u.deleted_at IS NULL`
 
 	var args []interface{}
-	argIndex := 1
+	args = append(args, *tenantID)
+	argIndex = 2
 
 	if search != "" {
-		query += ` AND (full_name ILIKE $` + fmt.Sprintf("%d", argIndex) +
-				 ` OR email ILIKE $` + fmt.Sprintf("%d", argIndex) +
-				 ` OR username ILIKE $` + fmt.Sprintf("%d", argIndex) + `)`
+		query += ` AND (u.full_name ILIKE $` + fmt.Sprintf("%d", argIndex) +
+			` OR u.email ILIKE $` + fmt.Sprintf("%d", argIndex) +
+			` OR u.username ILIKE $` + fmt.Sprintf("%d", argIndex) + `)`
 		args = append(args, "%"+search+"%")
 		argIndex++
 	}
 
-	query += ` ORDER BY ` + sortBy + ` ` + sortDir
+	query += ` ORDER BY u.` + sortBy + ` ` + sortDir
 	query += ` LIMIT $` + fmt.Sprintf("%d", argIndex) + ` OFFSET $` + fmt.Sprintf("%d", argIndex+1)
 	args = append(args, limit, offset)
 

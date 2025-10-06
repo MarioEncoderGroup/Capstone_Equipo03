@@ -53,9 +53,29 @@ func (uc *UserController) GetUsers(c *fiber.Ctx) error {
 		})
 	}
 
-	// Obtener usuarios desde el servicio
+	// IMPORTANTE: Obtener tenant_id del contexto para aislamiento multi-tenant
+	tenantIDStr := c.Locals("tenantID")
+	if tenantIDStr == nil || tenantIDStr == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(types.APIResponse{
+			Success: false,
+			Message: "Tenant no seleccionado",
+			Error:   "TENANT_REQUIRED",
+		})
+	}
+
+	tenantID, err := uuid.Parse(tenantIDStr.(string))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(types.APIResponse{
+			Success: false,
+			Message: "Tenant ID inválido",
+			Error:   "INVALID_TENANT_ID",
+		})
+	}
+
+	// Obtener usuarios desde el servicio (filtrados por tenant)
 	users, total, err := uc.userService.GetUsers(
 		c.Context(),
+		&tenantID,
 		paginationReq.GetOffset(),
 		paginationReq.GetLimit(),
 		paginationReq.SortBy,

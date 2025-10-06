@@ -12,43 +12,44 @@ import (
 func PrivateRoutes(app *fiber.App, dbControl *postgresql.PostgresqlClient, tenantController *controllers.TenantController, userController *controllers.UserController, roleController *controllers.RoleController, permissionController *controllers.PermissionController, userRoleController *controllers.UserRoleController, rolePermissionController *controllers.RolePermissionController, rbacMiddleware *middlewares.RBACMiddleware) *fiber.App {
 	// Create authentication middleware
 	authMiddleware := middleware.AuthMiddleware(dbControl)
+	tenantMiddleware := middleware.RequireTenantMiddleware()
 
 	// Private API routes group with authentication
 	private := app.Group("/api/v1", authMiddleware)
 
-	// Tenant management routes
+	// Tenant management routes (sin RequireTenant porque son para selección inicial)
 	tenant := private.Group("/tenant")
-	tenant.Get("/status", tenantController.GetTenantStatus) // Verifica si usuario tiene tenants
-	tenant.Post("/create", tenantController.CreateTenant)   // Crea nuevo tenant
-	tenant.Get("/", tenantController.GetTenantsByUser)
-	tenant.Post("/select/:tenantId", tenantController.SelectTenant)
-	tenant.Get("/:tenantId/profile", tenantController.GetTenantProfile)
-	tenant.Put("/:tenantId/profile", tenantController.UpdateTenantProfile)
+	tenant.Get("/status", tenantController.GetTenantStatus)                    // No requiere tenant seleccionado
+	tenant.Post("/create", tenantController.CreateTenant)                       // No requiere tenant seleccionado
+	tenant.Get("/", tenantController.GetTenantsByUser)                          // No requiere tenant seleccionado
+	tenant.Post("/select/:tenantId", tenantController.SelectTenant)             // No requiere tenant seleccionado
+	tenant.Get("/:tenantId/profile", tenantMiddleware, tenantController.GetTenantProfile)   // Requiere tenant
+	tenant.Put("/:tenantId/profile", tenantMiddleware, tenantController.UpdateTenantProfile) // Requiere tenant
 
-	// User management routes
-	users := private.Group("/users")
+	// User management routes (requieren tenant seleccionado)
+	users := private.Group("/users", tenantMiddleware)
 	users.Get("/profile", userController.GetProfile)
 	users.Put("/profile", userController.UpdateProfile)
 	users.Post("/change-password", userController.ChangePassword)
 
-	// Admin user management routes
-	adminUsers := private.Group("/admin/users", rbacMiddleware.RequireRole("administrator"))
+	// Admin user management routes (requieren tenant + administrator role)
+	adminUsers := private.Group("/admin/users", tenantMiddleware, rbacMiddleware.RequireRole("administrator"))
 	adminUsers.Get("/", userController.GetUsers)
 	adminUsers.Get("/:id", userController.GetUserByID)
 	adminUsers.Post("/", rbacMiddleware.RequirePermission("create-user"), userController.CreateUser)
 	adminUsers.Put("/:id", rbacMiddleware.RequirePermission("update-user"), userController.UpdateUser)
 	adminUsers.Delete("/:id", rbacMiddleware.RequirePermission("delete-user"), userController.DeleteUser)
 
-	// Role management routes
-	roles := private.Group("/roles", rbacMiddleware.RequireRole("administrator"))
+	// Role management routes (requieren tenant + administrator role)
+	roles := private.Group("/roles", tenantMiddleware, rbacMiddleware.RequireRole("administrator"))
 	roles.Get("/", roleController.GetRoles)
 	roles.Get("/:id", roleController.GetRoleByID)
 	roles.Post("/", rbacMiddleware.RequirePermission("create-role"), roleController.CreateRole)
 	roles.Put("/:id", rbacMiddleware.RequirePermission("update-role"), roleController.UpdateRole)
 	roles.Delete("/:id", rbacMiddleware.RequirePermission("delete-role"), roleController.DeleteRole)
 
-	// Permission management routes
-	permissions := private.Group("/permissions", rbacMiddleware.RequireRole("administrator"))
+	// Permission management routes (requieren tenant + administrator role)
+	permissions := private.Group("/permissions", tenantMiddleware, rbacMiddleware.RequireRole("administrator"))
 	permissions.Get("/", permissionController.GetPermissions)
 	permissions.Get("/sections", permissionController.GetAvailableSections)
 	permissions.Get("/grouped", permissionController.GetPermissionsGrouped)
@@ -57,8 +58,8 @@ func PrivateRoutes(app *fiber.App, dbControl *postgresql.PostgresqlClient, tenan
 	permissions.Put("/:id", rbacMiddleware.RequireSystemAdmin(), permissionController.UpdatePermission)
 	permissions.Delete("/:id", rbacMiddleware.RequireSystemAdmin(), permissionController.DeletePermission)
 
-	// User-Role assignment routes (protected by administrator/manager role)
-	userRoles := private.Group("/user-roles", rbacMiddleware.RequireRole("administrator", "manager"))
+	// User-Role assignment routes (requieren tenant + administrator/manager role)
+	userRoles := private.Group("/user-roles", tenantMiddleware, rbacMiddleware.RequireRole("administrator", "manager"))
 	userRoles.Get("/users/:userID/roles", userRoleController.GetUserRoles)
 	userRoles.Get("/roles/:roleID/users", userRoleController.GetRoleUsers)
 	userRoles.Post("/assign", userRoleController.CreateUserRole)
@@ -66,8 +67,8 @@ func PrivateRoutes(app *fiber.App, dbControl *postgresql.PostgresqlClient, tenan
 	userRoles.Put("/users/:userID/sync", userRoleController.SyncUserRoles)
 	userRoles.Put("/roles/:roleID/sync", userRoleController.SyncRoleUsers)
 
-	// Role-Permission assignment routes (protected by administrator role)
-	rolePermissions := private.Group("/role-permissions", rbacMiddleware.RequireRole("administrator"))
+	// Role-Permission assignment routes (requieren tenant + administrator role)
+	rolePermissions := private.Group("/role-permissions", tenantMiddleware, rbacMiddleware.RequireRole("administrator"))
 	rolePermissions.Get("/roles/:roleID", rolePermissionController.GetRolePermissions)
 	rolePermissions.Get("/permissions/:permissionID", rolePermissionController.GetPermissionRoles)
 	rolePermissions.Post("/assign", rolePermissionController.CreateRolePermission)
