@@ -10,11 +10,17 @@ services:
       - HOST=0.0.0.0
       - PORT=8080
       - POSTGRESQL_CONTROL_HOST=postgres
+      - POSTGRESQL_CONTROL_USER=postgres
+      - POSTGRESQL_CONTROL_PASSWORD=password123
+      - POSTGRESQL_CONTROL_DATABASE=misviaticos_control
+      - POSTGRESQL_CONTROL_PORT=5432
       - POSTGRESQL_NODE1_HOST=postgres
       - REDIS_HOST=redis
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
     volumes:
       - ./email_templates:/app/email_templates:ro
     networks:
@@ -32,6 +38,11 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - misviaticos-network
 
