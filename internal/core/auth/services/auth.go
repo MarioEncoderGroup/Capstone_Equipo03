@@ -11,6 +11,8 @@ import (
 	tenantDomain "github.com/JoseLuis21/mv-backend/internal/core/tenant/domain"
 	userDomain "github.com/JoseLuis21/mv-backend/internal/core/user/domain"
 	userPorts "github.com/JoseLuis21/mv-backend/internal/core/user/ports"
+	rolePorts "github.com/JoseLuis21/mv-backend/internal/core/role/ports"
+	rolePermissionPorts "github.com/JoseLuis21/mv-backend/internal/core/role_permission/ports"
 	"github.com/JoseLuis21/mv-backend/internal/shared/email"
 	sharedErrors "github.com/JoseLuis21/mv-backend/internal/shared/errors"
 	"github.com/JoseLuis21/mv-backend/internal/shared/hasher"
@@ -20,11 +22,13 @@ import (
 
 // authService implementa el servicio de autenticación usando servicios genéricos
 type authService struct {
-	userService      userPorts.UserService
-	passwordHasher   *hasher.Service
-	tokenService     tokens.Service
-	emailService     email.Service
-	emailTokenExpiry time.Duration
+	userService             userPorts.UserService
+	passwordHasher          *hasher.Service
+	tokenService            tokens.Service
+	emailService            email.Service
+	roleService             rolePorts.RoleService
+	rolePermissionService   rolePermissionPorts.RolePermissionService
+	emailTokenExpiry        time.Duration
 }
 
 // NewAuthService crea una nueva instancia del servicio de autenticación
@@ -33,13 +37,17 @@ func NewAuthService(
 	passwordHasher *hasher.Service,
 	tokenService tokens.Service,
 	emailService email.Service,
+	roleService rolePorts.RoleService,
+	rolePermissionService rolePermissionPorts.RolePermissionService,
 ) ports.AuthService {
 	return &authService{
-		userService:      userService,
-		passwordHasher:   passwordHasher,
-		tokenService:     tokenService,
-		emailService:     emailService,
-		emailTokenExpiry: 24 * time.Hour, // Token válido por 24 horas
+		userService:           userService,
+		passwordHasher:        passwordHasher,
+		tokenService:          tokenService,
+		emailService:          emailService,
+		roleService:           roleService,
+		rolePermissionService: rolePermissionService,
+		emailTokenExpiry:      24 * time.Hour, // Token válido por 24 horas
 	}
 }
 
@@ -66,8 +74,9 @@ func (s *authService) Register(ctx context.Context, req *domain_auth.AuthRegiste
 		return nil, err
 	}
 
-	// 4. Crear entidad de usuario con firstname, lastname, email, phone, hashedPassword
-	user := userDomain.NewUser(req.FirstName, req.LastName, req.Email, req.Phone, hashedPassword)
+	// 4. Crear entidad de usuario con fullName, email, phone, hashedPassword
+	// Usuario inactivo (false) hasta verificar email
+	user := userDomain.NewUser(req.FullName, req.Email, req.Phone, hashedPassword, false)
 	user.SetEmailVerificationToken(emailToken, s.emailTokenExpiry)
 
 	// 5. Guardar usuario en BD
@@ -81,17 +90,15 @@ func (s *authService) Register(ctx context.Context, req *domain_auth.AuthRegiste
 		fmt.Printf("Error enviando email de verificación: %v\n", err)
 	}
 
-	// 7. Preparar respuesta siguiendo el patrón de referencia con nuevos campos
+	// 7. Preparar respuesta siguiendo el patrón de referencia
 	phoneValue := ""
 	if user.Phone != nil {
 		phoneValue = *user.Phone
 	}
-	
+
 	return &domain_auth.AuthRegisterResponse{
 		ID:                        user.ID,
-		FirstName:                 user.FirstName,
-		LastName:                  user.LastName,
-		FullName:                  user.FullName, // Para backward compatibility
+		FullName:                  user.FullName,
 		Email:                     user.Email,
 		Phone:                     phoneValue,
 		EmailToken:                emailToken,
@@ -180,32 +187,28 @@ func (s *authService) Login(ctx context.Context, req *domain_auth.AuthLoginDto) 
 		fmt.Printf("Error actualizando último login: %v\n", err)
 	}
 
-	// 7. Generar JWT token con type "login" (antes de seleccionar tenant)
-	claims := map[string]interface{}{
-		"user_id":    user.ID.String(),
-		"email":      user.Email,
-		"username":   user.Username,
-		"full_name":  user.FullName,
-		"is_active":  user.IsActive,
-		"type":       "login", // Tipo login antes de seleccionar tenant
-	}
-
-	accessToken, err := s.tokenService.GenerateJWT(claims, 24*time.Hour)
+	accessToken, expiresIn, err := s.tokenService.GenerateAccessToken(user.ID, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error generando token de acceso: %w", err)
 	}
 
-	// 8. Generar refresh token para login (30 días de expiración)
-	refreshToken, err := s.tokenService.GenerateRefreshToken(user.ID, uuid.Nil, 30*24*time.Hour)
+	// 8. Generar refresh token (sin tenant_id)
+	refreshToken, refreshExpiresIn, err := s.tokenService.GenerateRefreshToken(user.ID, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error generando refresh token: %w", err)
 	}
 
-	// 9. Preparar respuesta con tokens
+	// 9. Guardar refresh token en la base de datos
+	if err := s.userService.SaveRefreshToken(ctx, user.ID, refreshToken, refreshExpiresIn); err != nil {
+		// Log error pero continuar con el login
+		fmt.Printf("Error guardando refresh token: %v\n", err)
+	}
+
+	// 10. Preparar respuesta con tokens
 	resp := &domain_auth.AuthLoginResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
-		ExpiresIn:    int64(24 * 60 * 60), // 24 horas en segundos
+		ExpiresIn:    expiresIn,
 		TokenType:    "Bearer",
 		User: userDomain.User{
 			ID:        user.ID,
@@ -213,7 +216,7 @@ func (s *authService) Login(ctx context.Context, req *domain_auth.AuthLoginDto) 
 			FullName:  user.FullName,
 			Email:     user.Email,
 			IsActive:  user.IsActive,
-			LastLogin: user.LastLogin, // Ahora incluye el último login actualizado
+			LastLogin: user.LastLogin,
 		},
 	}
 
@@ -406,34 +409,51 @@ func (s *authService) SelectTenant(ctx context.Context, tenant *tenantDomain.Ten
 	// TODO: Aquí se debería verificar que el usuario tiene acceso al tenant
 	// mediante un repositorio o servicio de UserTenant, pero por ahora lo omitimos
 
-	// 4. Generar claims para el JWT con tenant_id y type "tenant_selection"
-	claims := map[string]interface{}{
-		"user_id":    user.ID.String(),
-		"email":      user.Email,
-		"username":   user.Username,
-		"full_name":  user.FullName,
-		"is_active":  user.IsActive,
-		"tenant_id":  tenant.ID.String(),
-		"type":       "tenant_selection", // Cambio crítico vs "login"
+	// 4. Obtener roles del usuario en el tenant
+	userRoles, err := s.roleService.GetUserRoles(ctx, user.ID, &tenant.ID)
+	if err != nil {
+		return nil, fmt.Errorf("error getting user roles: %w", err)
 	}
 
-	// 5. Generar nuevo JWT con 24 horas de expiración
-	accessToken, err := s.tokenService.GenerateJWT(claims, 24*time.Hour)
+	// Extraer IDs de roles para obtener permisos
+	var roleIDs []uuid.UUID
+	var roleNames []string
+	for _, role := range userRoles {
+		roleIDs = append(roleIDs, role.ID)
+		roleNames = append(roleNames, role.Name)
+	}
+
+	// 5. Obtener permisos del usuario basados en sus roles
+	var permissionNames []string
+	if len(roleIDs) > 0 {
+		permissionNames, err = s.rolePermissionService.GetPermissionNamesByRoleIDs(ctx, roleIDs)
+		if err != nil {
+			return nil, fmt.Errorf("error getting user permissions: %w", err)
+		}
+	}
+
+	// 6. Generar access token con tenant_id, roles y permisos en los claims
+	accessToken, expiresIn, err := s.tokenService.GenerateAccessTokenWithRoles(user.ID, &tenant.ID, roleNames, permissionNames)
 	if err != nil {
 		return nil, fmt.Errorf("error generating access token: %w", err)
 	}
 
-	// 6. Generar refresh token (30 días de expiración)
-	refreshToken, err := s.tokenService.GenerateRefreshToken(userID, tenant.ID, 30*24*time.Hour)
+	// 5. Generar refresh token con tenant_id
+	refreshToken, refreshExpiresIn, err := s.tokenService.GenerateRefreshToken(user.ID, &tenant.ID)
 	if err != nil {
 		return nil, fmt.Errorf("error generating refresh token: %w", err)
+	}
+
+	// 6. Guardar refresh token en la base de datos
+	if err := s.userService.SaveRefreshToken(ctx, user.ID, refreshToken, refreshExpiresIn); err != nil {
+		// Log error pero continuar
+		fmt.Printf("Error guardando refresh token: %v\n", err)
 	}
 
 	// 7. Preparar respuesta completa
 	response := &tenantDomain.SelectTenantResponseDto{
 		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-		ExpiresIn:    int64(24 * 60 * 60), // 24 horas en segundos
+		ExpiresIn:    expiresIn,
 		User: userDomain.User{
 			ID:        user.ID,
 			Username:  user.Username,
@@ -516,8 +536,12 @@ func (s *authService) RefreshAccessToken(ctx context.Context, refreshToken strin
 		return nil, fmt.Errorf("error generating new access token: %w", err)
 	}
 
-	// 8. Generar nuevo refresh token (30 días)
-	newRefreshToken, err := s.tokenService.GenerateRefreshToken(userID, tenantID, 30*24*time.Hour)
+	// 8. Generar nuevo refresh token
+	var tenantIDPtr *uuid.UUID
+	if tenantID != uuid.Nil {
+		tenantIDPtr = &tenantID
+	}
+	newRefreshToken, _, err := s.tokenService.GenerateRefreshToken(userID, tenantIDPtr)
 	if err != nil {
 		return nil, fmt.Errorf("error generating new refresh token: %w", err)
 	}

@@ -15,3 +15,13 @@ type ValidationErrorResponse struct {
 	Field   string `json:"field"`
 	Message string `json:"message"`
 }
+
+// PaginatedAPIResponse estructura estándar para respuestas paginadas de la API
+// Utilizada por todos los controllers para mantener consistencia en respuestas paginadas
+type PaginatedAPIResponse struct {
+	Success    bool        `json:"success"`
+	Message    string      `json:"message"`
+	Data       interface{} `json:"data,omitempty"`
+	Pagination interface{} `json:"pagination,omitempty"`
+	Error      string      `json:"error,omitempty"`
+}

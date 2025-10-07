@@ -6,13 +6,11 @@ import (
 )
 
 // User representa la entidad principal de usuario en el dominio
-// Mapea directamente con la tabla 'users' del control database
+// Mapea directamente con la tabla 'users' del control database (000001_create_user_table.up.sql)
 type User struct {
 	ID                     uuid.UUID  `json:"id"`
 	Username               string     `json:"username"`
-	FirstName              string     `json:"first_name"`
-	LastName               string     `json:"last_name"`
-	FullName               string     `json:"full_name"` // Calculado: FirstName + " " + LastName
+	FullName               string     `json:"full_name"`
 	Phone                  *string    `json:"phone"`
 	IdentificationNumber   *string    `json:"identification_number"` // RUT chileno
 	Email                  string     `json:"email"`
@@ -35,60 +33,55 @@ type User struct {
 }
 
 // NewUser crea una nueva instancia de usuario con valores por defecto
-// Aplica reglas de negocio iniciales (usuario inactivo hasta verificar email)
+// Aplica reglas de negocio iniciales
 // Genera username automáticamente basado en el email
-func NewUser(firstName, lastName, email, phone, hashedPassword string) *User {
+// isActive determina si el usuario estará activo desde la creación (default: false hasta verificar email)
+func NewUser(fullName, email, phone, hashedPassword string, isActive bool) *User {
 	now := time.Now()
-	
+
 	// Generar username automáticamente del email (antes del @)
 	username := generateUsernameFromEmail(email)
-	
-	// Construir full name a partir de first name y last name
-	fullName := firstName + " " + lastName
-	
+
 	// Manejar phone como puntero (puede ser vacío)
 	var phonePtr *string
 	if phone != "" {
 		phonePtr = &phone
 	}
-	
+
 	return &User{
 		ID:            uuid.New(),
 		Username:      username,
-		FirstName:     firstName,
-		LastName:      lastName,
 		FullName:      fullName,
 		Phone:         phonePtr,
 		Email:         email,
 		Password:      hashedPassword,
 		EmailVerified: false,
-		IsActive:      false, // Inactivo hasta verificar email
+		IsActive:      isActive, // Usar parámetro recibido
 		Created:       now,
 		Updated:       now,
 	}
 }
 
-// generateUsernameFromEmail genera un username único basado en el email
+// generateUsernameFromEmail genera un username basado en el email completo
+// Usa el email completo reemplazando caracteres especiales con guiones bajos
+// Esto reduce significativamente las colisiones de usernames
 func generateUsernameFromEmail(email string) string {
-	// Tomar la parte antes del @ y limpiar caracteres especiales
-	username := email
-	if atIndex := findAtIndex(email); atIndex != -1 {
-		username = email[:atIndex]
-	}
-	
-	// Limpiar caracteres especiales (mantener solo alfanuméricos)
+	// Usar el email completo y limpiar caracteres especiales
+	// Reemplazar @ y . con guion bajo para mantener unicidad
 	cleaned := ""
-	for _, char := range username {
+	for _, char := range email {
 		if (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') {
 			cleaned += string(char)
+		} else if char == '@' || char == '.' || char == '-' || char == '_' {
+			cleaned += "_"
 		}
 	}
-	
+
 	// Asegurar que tenga al menos 3 caracteres
 	if len(cleaned) < 3 {
-		cleaned = "user" + cleaned
+		cleaned = "user_" + cleaned
 	}
-	
+
 	return cleaned
 }
 

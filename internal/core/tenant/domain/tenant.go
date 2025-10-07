@@ -13,11 +13,11 @@ type Tenant struct {
 	Email        string     `json:"email,omitempty"`
 	Phone        string     `json:"phone,omitempty"`
 	Address      string     `json:"address,omitempty"`
-	Website      string     `json:"website,omitempty"`
+	Website      *string    `json:"website,omitempty"`
 	Logo         *string    `json:"logo,omitempty"`
 	RegionID     string     `json:"region_id,omitempty"`
 	CommuneID    string     `json:"commune_id,omitempty"`
-	CountryID    string     `json:"country_id,omitempty"`
+	CountryID    uuid.UUID  `json:"country_id,omitempty"`
 	Status       string     `json:"status,omitempty"`
 	NodeNumber   int        `json:"node_number,omitempty"`
 	TenantName   string     `json:"tenant_name,omitempty"`
@@ -39,7 +39,7 @@ const (
 )
 
 // NewTenant crea una nueva instancia de Tenant
-func NewTenant(rut, businessName, email, phone, address, website, regionID, communeID string, countryID uuid.UUID, nodeNumber int, tenantName string, createdBy uuid.UUID) *Tenant {
+func NewTenant(rut, businessName, email, phone, address string, website *string, regionID, communeID string, countryID uuid.UUID, nodeNumber int, tenantName string, createdBy uuid.UUID) *Tenant {
 	now := time.Now()
 	return &Tenant{
 		ID:           uuid.New(),
@@ -51,7 +51,7 @@ func NewTenant(rut, businessName, email, phone, address, website, regionID, comm
 		Website:      website,
 		RegionID:     regionID,
 		CommuneID:    communeID,
-		CountryID:    countryID.String(),
+		CountryID:    countryID,
 		Status:       string(TenantStatusActive),
 		NodeNumber:   nodeNumber,
 		TenantName:   tenantName,

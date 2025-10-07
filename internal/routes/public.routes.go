@@ -3,16 +3,16 @@ package routes
 import (
 	"time"
 	"github.com/gofiber/fiber/v2"
+	"github.com/JoseLuis21/mv-backend/internal/controllers"
 )
 
 // PublicRoutes defines all public routes for MisViaticos API
-func PublicRoutes(app *fiber.App) *fiber.App {
+func PublicRoutes(app *fiber.App, regionController *controllers.RegionController, communeController *controllers.CommuneController) *fiber.App {
 	// Welcome endpoint
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
 			"message": "Welcome to MisViaticos API",
 			"version": "1.0.0",
-			"docs":    "/api/v1/docs",
 		})
 	})
 
@@ -53,6 +53,12 @@ func PublicRoutes(app *fiber.App) *fiber.App {
 			"version":   "1.0.0",
 		})
 	})
+
+	// Regiones y Comunas - Datos públicos para formularios
+	public.Get("/regions", regionController.GetAllRegions)
+	public.Get("/regions/:id", regionController.GetRegionByID)
+	public.Get("/communes", communeController.GetCommunes)
+	public.Get("/communes/:id", communeController.GetCommuneByID)
 
 	return app
 }

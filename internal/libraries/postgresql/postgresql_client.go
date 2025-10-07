@@ -14,20 +14,18 @@ type PostgresqlClient struct {
 	Pool   *pgxpool.Pool
 	config *Config
 }
-
-// Config holds the PostgreSQL connection configuration
 type Config struct {
-	User         string
-	Password     string
-	Host         string
-	Port         string
-	Database     string
-	MaxConns     int32
-	MinConns     int32
-	MaxLifetime  time.Duration
-	MaxIdleTime  time.Duration
-	HealthCheck  bool
-	SSLMode      string
+	User        string
+	Password    string
+	Host        string
+	Port        string
+	Database    string
+	MaxConns    int32
+	MinConns    int32
+	MaxLifetime time.Duration
+	MaxIdleTime time.Duration
+	HealthCheck bool
+	SSLMode     string
 }
 
 // DefaultConfig returns a default PostgreSQL configuration for MisViaticos

@@ -21,6 +21,9 @@ type TenantService interface {
 	// CreateTenant crea un nuevo tenant
 	CreateTenant(ctx context.Context, tenant *tenantDomain.Tenant) error
 
+	// CreateTenantFromDTO crea un nuevo tenant desde un DTO y lo asocia al usuario
+	CreateTenantFromDTO(ctx context.Context, dto *tenantDomain.CreateTenantDTO, userID uuid.UUID) (*tenantDomain.Tenant, error)
+
 	// UpdateTenant actualiza un tenant existente
 	UpdateTenant(ctx context.Context, tenant *tenantDomain.Tenant) error
 
