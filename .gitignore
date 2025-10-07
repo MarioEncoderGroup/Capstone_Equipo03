@@ -72,3 +72,8 @@ local_config.yml
 mv-architecture-agent.md
 *-agent.md
 *-architecture.md
+# Archivos temporales y de desarrollo
+*.md
+.claude/
+railway.json
+railway.toml
