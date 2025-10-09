@@ -9,7 +9,7 @@ import (
 )
 
 // PrivateRoutes defines all private routes for MisViaticos API
-func PrivateRoutes(app *fiber.App, dbControl *postgresql.PostgresqlClient, tenantController *controllers.TenantController, userController *controllers.UserController, roleController *controllers.RoleController, permissionController *controllers.PermissionController, userRoleController *controllers.UserRoleController, rolePermissionController *controllers.RolePermissionController, rbacMiddleware *middlewares.RBACMiddleware) *fiber.App {
+func PrivateRoutes(app *fiber.App, dbControl *postgresql.PostgresqlClient, tenantController *controllers.TenantController, userController *controllers.UserController, roleController *controllers.RoleController, permissionController *controllers.PermissionController, userRoleController *controllers.UserRoleController, rolePermissionController *controllers.RolePermissionController, expenseController *controllers.ExpenseController, rbacMiddleware *middlewares.RBACMiddleware) *fiber.App {
 	// Create authentication middleware
 	authMiddleware := middleware.AuthMiddleware(dbControl)
 	tenantMiddleware := middleware.RequireTenantMiddleware()
@@ -77,50 +77,18 @@ func PrivateRoutes(app *fiber.App, dbControl *postgresql.PostgresqlClient, tenan
 	rolePermissions.Get("/check", rolePermissionController.CheckRoleHasPermission)
 	rolePermissions.Delete("/roles/:roleID/all", rolePermissionController.RemoveAllPermissionsFromRole)
 
-	// TODO: Implement these tenant controllers
-	// tenant.Post("/create", controllers.CreateTenant)
-	// tenant.Put("/update/:tenantID", controllers.UpdateTenant)
+	// Expense management routes (core MisViaticos functionality)
+	expenses := private.Group("/expenses", tenantMiddleware)
+	expenses.Get("/", expenseController.GetExpenses)
+	expenses.Post("/", expenseController.CreateExpense)
+	expenses.Get("/:id", expenseController.GetExpenseByID)
+	expenses.Put("/:id", expenseController.UpdateExpense)
+	expenses.Delete("/:id", expenseController.DeleteExpense)
+	expenses.Post("/:id/receipts", expenseController.UploadReceipt)
 
-	// TODO: Implement all remaining controllers and uncomment these routes
-	/*
-
-		// Expense management routes (core MisViaticos functionality)
-		expenses := private.Group("/expenses")
-		expenses.Get("/", controllers.GetExpenses)
-		expenses.Post("/", controllers.CreateExpense)
-		expenses.Get("/:expenseID", controllers.GetExpense)
-		expenses.Put("/:expenseID", controllers.UpdateExpense)
-		expenses.Delete("/:expenseID", controllers.DeleteExpense)
-		expenses.Post("/:expenseID/submit", controllers.SubmitExpense)
-		expenses.Post("/:expenseID/approve", controllers.ApproveExpense)
-		expenses.Post("/:expenseID/reject", controllers.RejectExpense)
-
-		// Receipt management routes
-		receipts := private.Group("/receipts")
-		receipts.Post("/upload", controllers.UploadReceipt)
-		receipts.Get("/:receiptID", controllers.GetReceipt)
-		receipts.Delete("/:receiptID", controllers.DeleteReceipt)
-
-		// Category management routes
-		categories := private.Group("/categories")
-		categories.Get("/", controllers.GetCategories)
-		categories.Post("/", controllers.CreateCategory)
-		categories.Put("/:categoryID", controllers.UpdateCategory)
-		categories.Delete("/:categoryID", controllers.DeleteCategory)
-
-		// Reporting routes
-		reports := private.Group("/reports")
-		reports.Get("/expenses", controllers.GetExpenseReport)
-		reports.Get("/summary", controllers.GetExpenseSummary)
-		reports.Get("/export/excel", controllers.ExportExpensesToExcel)
-		reports.Get("/export/pdf", controllers.ExportExpensesToPDF)
-
-		// Admin routes (require admin role)
-		admin := private.Group("/admin", rbacMiddleware.RequireAdminRole())
-		admin.Get("/analytics", controllers.GetAnalytics)
-		// TODO: Implement expense management routes
-		// admin.Get("/expenses", controllers.GetAllExpenses)
-	*/
+	// Receipt management routes
+	receipts := private.Group("/receipts", tenantMiddleware)
+	receipts.Delete("/:id", expenseController.DeleteReceipt)
 
 	return app
 }

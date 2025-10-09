@@ -24,6 +24,8 @@ import (
 	regionServices "github.com/JoseLuis21/mv-backend/internal/core/region/services"
 	communeAdapters "github.com/JoseLuis21/mv-backend/internal/core/commune/adapters"
 	communeServices "github.com/JoseLuis21/mv-backend/internal/core/commune/services"
+	expenseAdapters "github.com/JoseLuis21/mv-backend/internal/core/expense/adapters"
+	expenseServices "github.com/JoseLuis21/mv-backend/internal/core/expense/services"
 	"github.com/JoseLuis21/mv-backend/internal/libraries/postgresql"
 	"github.com/JoseLuis21/mv-backend/internal/shared/validatorapi"
 	"github.com/gofiber/fiber/v2"
@@ -41,6 +43,7 @@ type Dependencies struct {
 	RolePermissionController *controllers.RolePermissionController
 	RegionController         *controllers.RegionController
 	CommuneController    *controllers.CommuneController
+	ExpenseController        *controllers.ExpenseController
 
 	// Middlewares
 	RBACMiddleware *middlewares.RBACMiddleware
@@ -65,6 +68,8 @@ func NewDependencies(dbControl *postgresql.PostgresqlClient) (*Dependencies, err
 	rolePermissionRepo := rolePermissionAdapters.NewPgRolePermissionRepository(dbControl)
 	regionRepo := regionAdapters.NewPostgreSQLRegionRepository(dbControl)
 	communeRepo := communeAdapters.NewPostgreSQLCommuneRepository(dbControl)
+	expenseRepo := expenseAdapters.NewPostgreSQLExpenseRepository(dbControl)
+	categoryRepo := expenseAdapters.NewPostgreSQLCategoryRepository(dbControl)
 
 	// 3. Crear servicios auxiliares usando módulos genéricos
 	passwordHasher := hasher.NewService()
@@ -96,6 +101,7 @@ func NewDependencies(dbControl *postgresql.PostgresqlClient) (*Dependencies, err
 
 	regionService := regionServices.NewRegionService(regionRepo)
 	communeService := communeServices.NewCommuneService(communeRepo)
+	expenseService := expenseServices.NewExpenseService(expenseRepo, categoryRepo)
 
 	// 5. Inicializar roles y permisos del sistema
 	// Esto debe ejecutarse al inicio de la aplicación para garantizar que existan los roles necesarios
@@ -120,6 +126,7 @@ func NewDependencies(dbControl *postgresql.PostgresqlClient) (*Dependencies, err
 	rolePermissionController := controllers.NewRolePermissionController(rolePermissionService, validator)
 	regionController := controllers.NewRegionController(regionService)
 	communeController := controllers.NewCommuneController(communeService)
+	expenseController := controllers.NewExpenseController(expenseService, validator)
 
 	return &Dependencies{
 		AuthController:           authController,
@@ -131,6 +138,7 @@ func NewDependencies(dbControl *postgresql.PostgresqlClient) (*Dependencies, err
 		RolePermissionController: rolePermissionController,
 		RegionController:         regionController,
 		CommuneController:        communeController,
+		ExpenseController:        expenseController,
 		RBACMiddleware:           rbacMiddleware,
 		DBControl:                dbControl,
 		Validator:                validator,
