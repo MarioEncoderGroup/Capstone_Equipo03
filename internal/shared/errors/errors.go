@@ -81,7 +81,13 @@ var (
 		Message:  "Empresa no encontrada",
 		HTTPCode: http.StatusNotFound,
 	}
-	
+
+	ErrNotFound = &AppError{
+		Code:     "NOT_FOUND",
+		Message:  "Recurso no encontrado",
+		HTTPCode: http.StatusNotFound,
+	}
+
 	ErrInvalidEmailToken = &AppError{
 		Code:     "INVALID_EMAIL_TOKEN",
 		Message:  "Token de verificación de email inválido o expirado",
