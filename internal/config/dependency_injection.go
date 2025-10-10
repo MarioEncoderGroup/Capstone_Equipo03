@@ -2,12 +2,11 @@ package config
 
 import (
 	"context"
+	"os"
+
 	"github.com/JoseLuis21/mv-backend/internal/controllers"
-	"github.com/JoseLuis21/mv-backend/internal/middlewares"
-	"github.com/JoseLuis21/mv-backend/internal/shared/email"
-	"github.com/JoseLuis21/mv-backend/internal/shared/hasher"
-	"github.com/JoseLuis21/mv-backend/internal/shared/tokens"
 	"github.com/JoseLuis21/mv-backend/internal/core/auth/services"
+	ocrServices "github.com/JoseLuis21/mv-backend/internal/core/ocr/services"
 	"github.com/JoseLuis21/mv-backend/internal/core/tenant/adapters"
 	tenantServices "github.com/JoseLuis21/mv-backend/internal/core/tenant/services"
 	userAdapters "github.com/JoseLuis21/mv-backend/internal/core/user/adapters"
@@ -24,7 +23,14 @@ import (
 	regionServices "github.com/JoseLuis21/mv-backend/internal/core/region/services"
 	communeAdapters "github.com/JoseLuis21/mv-backend/internal/core/commune/adapters"
 	communeServices "github.com/JoseLuis21/mv-backend/internal/core/commune/services"
+	"github.com/JoseLuis21/mv-backend/internal/libraries/ocr"
 	"github.com/JoseLuis21/mv-backend/internal/libraries/postgresql"
+	redis_custom "github.com/JoseLuis21/mv-backend/internal/libraries/redis"
+	"github.com/JoseLuis21/mv-backend/internal/middlewares"
+	"github.com/JoseLuis21/mv-backend/internal/shared/email"
+	"github.com/JoseLuis21/mv-backend/internal/shared/hasher"
+	"github.com/JoseLuis21/mv-backend/internal/shared/tokens"
+	"github.com/JoseLuis21/mv-backend/internal/shared/utils"
 	"github.com/JoseLuis21/mv-backend/internal/shared/validatorapi"
 	"github.com/gofiber/fiber/v2"
 )
@@ -32,15 +38,16 @@ import (
 // Dependencies contiene todas las dependencias inyectadas de la aplicación
 type Dependencies struct {
 	// Controllers
-	AuthController       *controllers.AuthController
-	TenantController     *controllers.TenantController
-	UserController       *controllers.UserController
+	AuthController           *controllers.AuthController
+	TenantController         *controllers.TenantController
+	UserController           *controllers.UserController
 	RoleController           *controllers.RoleController
 	PermissionController     *controllers.PermissionController
 	UserRoleController       *controllers.UserRoleController
 	RolePermissionController *controllers.RolePermissionController
 	RegionController         *controllers.RegionController
-	CommuneController    *controllers.CommuneController
+	CommuneController        *controllers.CommuneController
+	OCRController            *controllers.OCRController
 
 	// Middlewares
 	RBACMiddleware *middlewares.RBACMiddleware
@@ -121,6 +128,42 @@ func NewDependencies(dbControl *postgresql.PostgresqlClient) (*Dependencies, err
 	regionController := controllers.NewRegionController(regionService)
 	communeController := controllers.NewCommuneController(communeService)
 
+	// 8. Configurar OCR dependencies (opcional si credenciales no están configuradas)
+	var ocrController *controllers.OCRController
+	googleProjectID := os.Getenv("GOOGLE_CLOUD_PROJECT_ID")
+	googleCredsPath := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")
+
+	if googleProjectID != "" && googleCredsPath != "" {
+		// Crear cliente de Redis para cache
+		redisStorage := redis_custom.New(redis_custom.Config{
+			Host:     utils.GetEnvOrDefault("REDIS_HOST", "localhost"),
+			Port:     6379,
+			Database: 0,
+		})
+		redisClient := redisStorage.GetClient()
+
+		// Crear cliente Google Vision
+		ctx := context.Background()
+		visionClient, err := ocr.NewGoogleVisionClient(ctx, ocr.GoogleVisionConfig{
+			ProjectID:           googleProjectID,
+			CredentialsFilePath: googleCredsPath,
+		})
+		if err != nil {
+			// Log warning pero continuar sin OCR
+			// TODO: agregar logging estructurado
+		} else {
+			// Crear OCR service
+			ocrService := ocrServices.NewOCRService(ocrServices.OCRServiceConfig{
+				VisionClient: visionClient,
+				RedisClient:  redisClient,
+				CacheEnabled: true,
+			})
+
+			// Crear OCR controller
+			ocrController = controllers.NewOCRController(ocrService)
+		}
+	}
+
 	return &Dependencies{
 		AuthController:           authController,
 		TenantController:         tenantController,
@@ -131,6 +174,7 @@ func NewDependencies(dbControl *postgresql.PostgresqlClient) (*Dependencies, err
 		RolePermissionController: rolePermissionController,
 		RegionController:         regionController,
 		CommuneController:        communeController,
+		OCRController:            ocrController,
 		RBACMiddleware:           rbacMiddleware,
 		DBControl:                dbControl,
 		Validator:                validator,
