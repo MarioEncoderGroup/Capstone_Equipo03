@@ -81,7 +81,13 @@ var (
 		Message:  "Empresa no encontrada",
 		HTTPCode: http.StatusNotFound,
 	}
-	
+
+	ErrNotFound = &AppError{
+		Code:     "NOT_FOUND",
+		Message:  "Recurso no encontrado",
+		HTTPCode: http.StatusNotFound,
+	}
+
 	ErrInvalidEmailToken = &AppError{
 		Code:     "INVALID_EMAIL_TOKEN",
 		Message:  "Token de verificación de email inválido o expirado",
@@ -106,6 +112,25 @@ var (
 		HTTPCode: http.StatusBadRequest,
 	}
 )
+
+// AuthError representa errores específicos de autenticación
+type AuthError struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+// Error implementa la interfaz error para AuthError
+func (e *AuthError) Error() string {
+	return fmt.Sprintf("%s: %s", e.Code, e.Message)
+}
+
+// NewAuthError crea un nuevo error de autenticación
+func NewAuthError(message, code string) *AuthError {
+	return &AuthError{
+		Code:    code,
+		Message: message,
+	}
+}
 
 // Errores de sistema
 var (

@@ -25,15 +25,13 @@ type Server struct {
 	port      string
 	host      string
 	dbControl *postgresql.PostgresqlClient
-	dbTenant  *postgresql.PostgresqlClient
 }
 
-func NewServer(host, port string, dbControl *postgresql.PostgresqlClient, dbTenant *postgresql.PostgresqlClient) *Server {
+func NewServer(host, port string, dbControl *postgresql.PostgresqlClient) *Server {
 	return &Server{
 		host:      host,
 		port:      port,
 		dbControl: dbControl,
-		dbTenant:  dbTenant,
 	}
 }
 
@@ -135,7 +133,6 @@ func (s *Server) Start() error {
 	// Core middlewares
 	app.Use(middleware.ValidatorMiddleware(validatorApi))
 	app.Use(middleware.DatabaseControlMiddleware(s.dbControl))
-	app.Use(middleware.DatabaseTenant1Middleware(s.dbTenant))
 
 	// Health check endpoint
 	app.Get("/", func(c *fiber.Ctx) error {
@@ -163,11 +160,11 @@ func (s *Server) Start() error {
 	// Configure authentication routes with dependency injection
 	routes.AuthRoutes(app, dependencies.AuthController)
 
-	// Define public routes (authentication, registration) - Legacy routes
-	routes.PublicRoutes(app)
+	// Define public routes (authentication, registration, regions, communes)
+	routes.PublicRoutes(app, dependencies.RegionController, dependencies.CommuneController)
 
-	// Define private routes (expenses, receipts, reports)
-	routes.PrivateRoutes(app, s.dbControl, dependencies.TenantController)
+	// Define private routes (expenses, receipts, reports, users, roles, permissions)
+	routes.PrivateRoutes(app, s.dbControl, dependencies.TenantController, dependencies.UserController, dependencies.RoleController, dependencies.PermissionController, dependencies.UserRoleController, dependencies.RolePermissionController, dependencies.RBACMiddleware)
 
 	// Configure OCR routes (si está disponible)
 	routes.OCRRoutes(app, s.dbControl, dependencies.OCRController)

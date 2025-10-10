@@ -5,29 +5,25 @@ import (
 	"github.com/google/uuid"
 )
 
-// AuthRegisterDto representa la solicitud de registro con campos requeridos por jefe técnico
-// Incluye firstname, lastname, email, phone, password, password_confirm
+// AuthRegisterDto representa la solicitud de registro
+// Alineado con la estructura de la tabla users en migraciones
 type AuthRegisterDto struct {
-	FirstName       string `json:"firstname" validate:"required,min=2,max=100"`
-	LastName        string `json:"lastname" validate:"required,min=2,max=100"`
+	FullName        string `json:"full_name" validate:"required,min=2,max=200"`
 	Email           string `json:"email" validate:"required,email,max=150"`
 	Phone           string `json:"phone" validate:"required,min=8,max=20"`
 	Password        string `json:"password" validate:"required,min=8,max=255"`
 	PasswordConfirm string `json:"password_confirm" validate:"required,eqfield=Password"`
 }
 
-
 // AuthRegisterResponse respuesta del registro
 type AuthRegisterResponse struct {
 	ID                        uuid.UUID `json:"id"`
-	FirstName                 string    `json:"firstname"`
-	LastName                  string    `json:"lastname"`
-	FullName                  string    `json:"full_name"` // Para backward compatibility
+	FullName                  string    `json:"full_name"`
 	Email                     string    `json:"email"`
 	Phone                     string    `json:"phone"`
 	EmailToken                string    `json:"email_token"`
-	RequiresEmailVerification bool       `json:"requires_email_verification"`
-	Message                   string     `json:"message"`
+	RequiresEmailVerification bool      `json:"requires_email_verification"`
+	Message                   string    `json:"message"`
 }
 
 // AuthLoginDto para autenticación de usuarios

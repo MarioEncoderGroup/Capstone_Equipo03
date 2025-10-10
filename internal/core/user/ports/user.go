@@ -54,6 +54,13 @@ type UserRepository interface {
 	
 	// RemoveUserFromTenant desasocia un usuario de un tenant (soft delete)
 	RemoveUserFromTenant(ctx context.Context, userID, tenantID uuid.UUID) error
+
+	// GetUsers obtiene una lista paginada de usuarios filtrados por tenant
+	// tenantID es obligatorio para garantizar aislamiento multi-tenant
+	GetUsers(ctx context.Context, tenantID *uuid.UUID, offset, limit int, sortBy, sortDir, search string) ([]*domain.User, int64, error)
+
+	// CheckUserExists verifica si un usuario existe por ID
+	CheckUserExists(ctx context.Context, id uuid.UUID) (bool, error)
 }
 
 // UserService define el contrato para el servicio de usuarios
@@ -89,4 +96,32 @@ type UserService interface {
 	
 	// AddUserToTenant asocia un usuario a un tenant
 	AddUserToTenant(ctx context.Context, tenantUser *domain.TenantUser) error
+
+	// RemoveUserFromTenant desasocia un usuario de un tenant (soft delete)
+	RemoveUserFromTenant(ctx context.Context, userID, tenantID uuid.UUID) error
+
+	// GetUsers obtiene una lista paginada de usuarios con validaciones de negocio
+	// tenantID es obligatorio para garantizar aislamiento multi-tenant
+	GetUsers(ctx context.Context, tenantID *uuid.UUID, offset, limit int, sortBy, sortDir, search string) ([]*domain.User, int64, error)
+
+	// CheckUserExists verifica si un usuario existe por ID
+	CheckUserExists(ctx context.Context, id uuid.UUID) (bool, error)
+
+	// DeleteUser elimina lógicamente un usuario (soft delete)
+	DeleteUser(ctx context.Context, id uuid.UUID) error
+
+	// CreateUserFromDto crea un usuario desde un DTO con validaciones
+	// Si tenantID no es nil, automáticamente asigna el usuario al tenant
+	CreateUserFromDto(ctx context.Context, dto *domain.CreateUserDto, tenantID *uuid.UUID) (*domain.User, error)
+
+	UpdateUserFromDto(ctx context.Context, id uuid.UUID, dto *domain.UpdateUserDto) (*domain.User, error)
+
+	// ChangeUserPassword cambia la contraseña de un usuario con validaciones
+	ChangeUserPassword(ctx context.Context, id uuid.UUID, dto *domain.ChangePasswordDto) error
+
+	// UpdateUserProfile actualiza el perfil de un usuario autenticado
+	UpdateUserProfile(ctx context.Context, id uuid.UUID, dto *domain.UpdateProfileDto) (*domain.User, error)
+
+	// SaveRefreshToken guarda un refresh token para un usuario
+	SaveRefreshToken(ctx context.Context, userID uuid.UUID, refreshToken string, expiresIn int64) error
 }

@@ -1,6 +1,7 @@
 /* ===========
-   3.  COMUNAS
+   3.  COMUNAS DE CHILE
    =========== */
+-- Seed idempotente: puede ejecutarse múltiples veces sin errores
 
 INSERT INTO commune (id, region_id, name) VALUES
 -- Arica y Parinacota (AP)
@@ -367,7 +368,6 @@ INSERT INTO commune (id, region_id, name) VALUES
 ('o’higgins'   ,'AI','O’Higgins'),
 ('rio-ibanez'  ,'AI','Río Ibáñez'),
 ('tortel'      ,'AI','Tortel'),
-
 -- Magallanes (MA)
 ('antartica'        ,'MA','Antártica'),
 ('cabo-de-hornos'   ,'MA','Cabo de Hornos'),
@@ -379,4 +379,5 @@ INSERT INTO commune (id, region_id, name) VALUES
 ('rio-verde'        ,'MA','Río Verde'),
 ('san-gregorio'     ,'MA','San Gregorio'),
 ('timaukel'         ,'MA','Timaukel'),
-('torres-del-paine' ,'MA','Torres del Paine');
+('torres-del-paine' ,'MA','Torres del Paine')
+ON CONFLICT (id) DO NOTHING;
