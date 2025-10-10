@@ -169,6 +169,9 @@ func (s *Server) Start() error {
 	// Define private routes (expenses, receipts, reports)
 	routes.PrivateRoutes(app, s.dbControl, dependencies.TenantController)
 
+	// Configure OCR routes (si está disponible)
+	routes.OCRRoutes(app, s.dbControl, dependencies.OCRController)
+
 	// Start server
 	return app.Listen(s.host + ":" + s.port)
 }
