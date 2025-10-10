@@ -38,6 +38,27 @@ type ExpenseRepository interface {
 	SetPrimaryReceipt(ctx context.Context, receiptID uuid.UUID) error
 }
 
+// CategoryRepository define el contrato para la persistencia de categorías
+type CategoryRepository interface {
+	// Create crea una nueva categoría
+	Create(ctx context.Context, category *domain.ExpenseCategory) error
+
+	// GetByID obtiene una categoría por su ID
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.ExpenseCategory, error)
+
+	// GetAll obtiene todas las categorías
+	GetAll(ctx context.Context, activeOnly bool) ([]domain.ExpenseCategory, error)
+
+	// GetByParent obtiene categorías hijas por parent_id
+	GetByParent(ctx context.Context, parentID *uuid.UUID) ([]domain.ExpenseCategory, error)
+
+	// Update actualiza una categoría existente
+	Update(ctx context.Context, category *domain.ExpenseCategory) error
+
+	// Delete elimina lógicamente una categoría (soft delete)
+	Delete(ctx context.Context, id uuid.UUID) error
+}
+
 // ExpenseService define el contrato para la lógica de negocio de gastos
 type ExpenseService interface {
 	// CRUD

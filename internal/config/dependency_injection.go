@@ -128,7 +128,7 @@ func NewDependencies(dbControl *postgresql.PostgresqlClient) (*Dependencies, err
 	regionController := controllers.NewRegionController(regionService)
 	communeController := controllers.NewCommuneController(communeService)
 
-	// 6. Configurar OCR dependencies (opcional si credenciales no están configuradas)
+	// 8. Configurar OCR dependencies (opcional si credenciales no están configuradas)
 	var ocrController *controllers.OCRController
 	googleProjectID := os.Getenv("GOOGLE_CLOUD_PROJECT_ID")
 	googleCredsPath := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")
