@@ -77,3 +77,4 @@ mv-architecture-agent.md
 .claude/
 railway.json
 railway.toml
+.env.google-vision
