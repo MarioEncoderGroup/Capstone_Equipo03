@@ -9,19 +9,19 @@ import (
 
 	"github.com/JoseLuis21/mv-backend/internal/core/policy/domain"
 	"github.com/JoseLuis21/mv-backend/internal/core/policy/ports"
+	"github.com/JoseLuis21/mv-backend/internal/libraries/postgresql"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type policyRepository struct {
-	db *pgxpool.Pool
+	client *postgresql.PostgresqlClient
 }
 
 // NewPolicyRepository creates a new PostgreSQL policy repository
-func NewPolicyRepository(db *pgxpool.Pool) ports.PolicyRepository {
+func NewPolicyRepository(client *postgresql.PostgresqlClient) ports.PolicyRepository {
 	return &policyRepository{
-		db: db,
+		client: client,
 	}
 }
 
@@ -37,7 +37,7 @@ func (r *policyRepository) Create(ctx context.Context, policy *domain.Policy) er
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
 
-	_, err = r.db.Exec(ctx, query,
+	err = r.client.Exec(ctx, query,
 		policy.ID,
 		policy.Name,
 		policy.Description,
@@ -67,7 +67,7 @@ func (r *policyRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.P
 	var policy domain.Policy
 	var configJSON []byte
 
-	err := r.db.QueryRow(ctx, query, id).Scan(
+	err := r.client.QueryRow(ctx, query, id).Scan(
 		&policy.ID,
 		&policy.Name,
 		&policy.Description,
@@ -132,7 +132,7 @@ func (r *policyRepository) GetAll(ctx context.Context, filters domain.PolicyFilt
 
 	// Get total count
 	var total int
-	err := r.db.QueryRow(ctx, countQuery, args...).Scan(&total)
+	err := r.client.QueryRow(ctx, countQuery, args...).Scan(&total)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count policies: %w", err)
 	}
@@ -150,7 +150,7 @@ func (r *policyRepository) GetAll(ctx context.Context, filters domain.PolicyFilt
 		args = append(args, filters.Offset)
 	}
 
-	rows, err := r.db.Query(ctx, baseQuery, args...)
+	rows, err := r.client.Query(ctx, baseQuery, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to query policies: %w", err)
 	}
@@ -203,7 +203,7 @@ func (r *policyRepository) Update(ctx context.Context, policy *domain.Policy) er
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
 
-	result, err := r.db.Exec(ctx, query,
+	err = r.client.Exec(ctx, query,
 		policy.Name,
 		policy.Description,
 		policy.PolicyType,
@@ -217,10 +217,6 @@ func (r *policyRepository) Update(ctx context.Context, policy *domain.Policy) er
 		return fmt.Errorf("failed to update policy: %w", err)
 	}
 
-	if result.RowsAffected() == 0 {
-		return fmt.Errorf("policy not found")
-	}
-
 	return nil
 }
 
@@ -232,13 +228,9 @@ func (r *policyRepository) Delete(ctx context.Context, id uuid.UUID) error {
 		WHERE id = $2 AND deleted_at IS NULL
 	`
 
-	result, err := r.db.Exec(ctx, query, time.Now(), id)
+	err := r.client.Exec(ctx, query, time.Now(), id)
 	if err != nil {
 		return fmt.Errorf("failed to delete policy: %w", err)
-	}
-
-	if result.RowsAffected() == 0 {
-		return fmt.Errorf("policy not found")
 	}
 
 	return nil
@@ -261,7 +253,7 @@ func (r *policyRepository) CreateRule(ctx context.Context, rule *domain.PolicyRu
 		return fmt.Errorf("failed to marshal action: %w", err)
 	}
 
-	_, err = r.db.Exec(ctx, query,
+	err = r.client.Exec(ctx, query,
 		rule.ID,
 		rule.PolicyID,
 		rule.CategoryID,
@@ -292,7 +284,7 @@ func (r *policyRepository) GetRuleByID(ctx context.Context, id uuid.UUID) (*doma
 	var rule domain.PolicyRule
 	var conditionJSON, actionJSON []byte
 
-	err := r.db.QueryRow(ctx, query, id).Scan(
+	err := r.client.QueryRow(ctx, query, id).Scan(
 		&rule.ID,
 		&rule.PolicyID,
 		&rule.CategoryID,
@@ -336,7 +328,7 @@ func (r *policyRepository) GetRulesByPolicy(ctx context.Context, policyID uuid.U
 		ORDER BY priority ASC
 	`
 
-	rows, err := r.db.Query(ctx, query, policyID)
+	rows, err := r.client.Query(ctx, query, policyID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query rules: %w", err)
 	}
@@ -400,7 +392,7 @@ func (r *policyRepository) UpdateRule(ctx context.Context, rule *domain.PolicyRu
 		return fmt.Errorf("failed to marshal action: %w", err)
 	}
 
-	result, err := r.db.Exec(ctx, query,
+	err = r.client.Exec(ctx, query,
 		rule.CategoryID,
 		rule.RuleType,
 		conditionJSON,
@@ -415,10 +407,6 @@ func (r *policyRepository) UpdateRule(ctx context.Context, rule *domain.PolicyRu
 		return fmt.Errorf("failed to update rule: %w", err)
 	}
 
-	if result.RowsAffected() == 0 {
-		return fmt.Errorf("rule not found")
-	}
-
 	return nil
 }
 
@@ -426,13 +414,9 @@ func (r *policyRepository) UpdateRule(ctx context.Context, rule *domain.PolicyRu
 func (r *policyRepository) DeleteRule(ctx context.Context, id uuid.UUID) error {
 	query := `DELETE FROM policy_rules WHERE id = $1`
 
-	result, err := r.db.Exec(ctx, query, id)
+	err := r.client.Exec(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete rule: %w", err)
-	}
-
-	if result.RowsAffected() == 0 {
-		return fmt.Errorf("rule not found")
 	}
 
 	return nil
@@ -445,7 +429,7 @@ func (r *policyRepository) CreateApprover(ctx context.Context, approver *domain.
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
 
-	_, err := r.db.Exec(ctx, query,
+	err := r.client.Exec(ctx, query,
 		approver.ID,
 		approver.PolicyID,
 		approver.UserID,
@@ -471,7 +455,7 @@ func (r *policyRepository) GetApproversByPolicy(ctx context.Context, policyID uu
 		ORDER BY level ASC
 	`
 
-	rows, err := r.db.Query(ctx, query, policyID)
+	rows, err := r.client.Query(ctx, query, policyID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query approvers: %w", err)
 	}
@@ -505,13 +489,9 @@ func (r *policyRepository) GetApproversByPolicy(ctx context.Context, policyID uu
 func (r *policyRepository) DeleteApprover(ctx context.Context, id uuid.UUID) error {
 	query := `DELETE FROM policy_approvers WHERE id = $1`
 
-	result, err := r.db.Exec(ctx, query, id)
+	err := r.client.Exec(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete approver: %w", err)
-	}
-
-	if result.RowsAffected() == 0 {
-		return fmt.Errorf("approver not found")
 	}
 
 	return nil
@@ -524,7 +504,7 @@ func (r *policyRepository) CreateSubmitter(ctx context.Context, submitter *domai
 		VALUES ($1, $2, $3, $4, $5, $6)
 	`
 
-	_, err := r.db.Exec(ctx, query,
+	err := r.client.Exec(ctx, query,
 		submitter.ID,
 		submitter.PolicyID,
 		submitter.UserID,
@@ -548,7 +528,7 @@ func (r *policyRepository) GetSubmittersByPolicy(ctx context.Context, policyID u
 		WHERE policy_id = $1
 	`
 
-	rows, err := r.db.Query(ctx, query, policyID)
+	rows, err := r.client.Query(ctx, query, policyID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query submitters: %w", err)
 	}
@@ -581,13 +561,9 @@ func (r *policyRepository) GetSubmittersByPolicy(ctx context.Context, policyID u
 func (r *policyRepository) DeleteSubmitter(ctx context.Context, id uuid.UUID) error {
 	query := `DELETE FROM policy_submitters WHERE id = $1`
 
-	result, err := r.db.Exec(ctx, query, id)
+	err := r.client.Exec(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete submitter: %w", err)
-	}
-
-	if result.RowsAffected() == 0 {
-		return fmt.Errorf("submitter not found")
 	}
 
 	return nil

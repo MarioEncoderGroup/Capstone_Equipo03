@@ -9,7 +9,7 @@ import (
 )
 
 // PrivateRoutes defines all private routes for MisViaticos API
-func PrivateRoutes(app *fiber.App, dbControl *postgresql.PostgresqlClient, tenantController *controllers.TenantController, userController *controllers.UserController, roleController *controllers.RoleController, permissionController *controllers.PermissionController, userRoleController *controllers.UserRoleController, rolePermissionController *controllers.RolePermissionController, expenseController *controllers.ExpenseController, rbacMiddleware *middlewares.RBACMiddleware) *fiber.App {
+func PrivateRoutes(app *fiber.App, dbControl *postgresql.PostgresqlClient, tenantController *controllers.TenantController, userController *controllers.UserController, roleController *controllers.RoleController, permissionController *controllers.PermissionController, userRoleController *controllers.UserRoleController, rolePermissionController *controllers.RolePermissionController, expenseController *controllers.ExpenseController, policyController *controllers.PolicyController, rbacMiddleware *middlewares.RBACMiddleware) *fiber.App {
 	// Create authentication middleware
 	authMiddleware := middleware.AuthMiddleware(dbControl)
 	tenantMiddleware := middleware.RequireTenantMiddleware()
@@ -85,6 +85,7 @@ func PrivateRoutes(app *fiber.App, dbControl *postgresql.PostgresqlClient, tenan
 	expenses.Put("/:id", expenseController.UpdateExpense)
 	expenses.Delete("/:id", expenseController.DeleteExpense)
 	expenses.Post("/:id/receipts", expenseController.UploadReceipt)
+	expenses.Post("/validate", policyController.ValidateExpense)
 
 	// Receipt management routes
 	receipts := private.Group("/receipts", tenantMiddleware)
