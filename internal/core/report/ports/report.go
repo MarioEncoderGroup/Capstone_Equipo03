@@ -32,6 +32,7 @@ type ReportRepository interface {
 	GetPendingApprovalForUser(ctx context.Context, reportID, userID uuid.UUID) (*domain.Approval, error)
 	GetPendingApprovalsByApprover(ctx context.Context, approverID uuid.UUID) ([]domain.Approval, error)
 	GetPendingApprovalsByReportID(ctx context.Context, reportID uuid.UUID) ([]domain.Approval, error)
+	GetStaleApprovals(ctx context.Context, hoursThreshold int) ([]domain.Approval, error)
 
 	// Approval History
 	CreateApprovalHistory(ctx context.Context, history *domain.ApprovalHistory) error

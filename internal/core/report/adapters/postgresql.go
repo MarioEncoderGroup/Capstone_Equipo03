@@ -624,6 +624,51 @@ func (r *reportRepository) GetPendingApprovalsByReportID(ctx context.Context, re
 	return approvals, nil
 }
 
+// GetStaleApprovals retrieves pending approvals older than the specified hours threshold
+func (r *reportRepository) GetStaleApprovals(ctx context.Context, hoursThreshold int) ([]domain.Approval, error) {
+	query := `
+		SELECT
+			id, report_id, approver_id, level, status,
+			comments, approved_amount, decision_date, escalation_date,
+			escalated_to, created, updated
+		FROM approvals
+		WHERE status = 'pending'
+		  AND created < NOW() - INTERVAL '1 hour' * $1
+		ORDER BY created ASC
+	`
+
+	rows, err := r.client.Query(ctx, query, hoursThreshold)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query stale approvals: %w", err)
+	}
+	defer rows.Close()
+
+	approvals := []domain.Approval{}
+	for rows.Next() {
+		var approval domain.Approval
+		err := rows.Scan(
+			&approval.ID,
+			&approval.ReportID,
+			&approval.ApproverID,
+			&approval.Level,
+			&approval.Status,
+			&approval.Comments,
+			&approval.ApprovedAmount,
+			&approval.DecisionDate,
+			&approval.EscalationDate,
+			&approval.EscalatedTo,
+			&approval.Created,
+			&approval.Updated,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan approval: %w", err)
+		}
+		approvals = append(approvals, approval)
+	}
+
+	return approvals, nil
+}
+
 // CreateApprovalHistory creates a new approval history entry
 func (r *reportRepository) CreateApprovalHistory(ctx context.Context, history *domain.ApprovalHistory) error {
 	query := `
