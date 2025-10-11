@@ -536,6 +536,94 @@ func (r *reportRepository) GetPendingApprovalForUser(ctx context.Context, report
 	return &approval, nil
 }
 
+// GetPendingApprovalsByApprover retrieves all pending approvals for an approver
+func (r *reportRepository) GetPendingApprovalsByApprover(ctx context.Context, approverID uuid.UUID) ([]domain.Approval, error) {
+	query := `
+		SELECT
+			id, report_id, approver_id, level, status,
+			comments, approved_amount, decision_date, escalation_date,
+			escalated_to, created, updated
+		FROM approvals
+		WHERE approver_id = $1 AND status = 'pending'
+		ORDER BY created ASC
+	`
+
+	rows, err := r.client.Query(ctx, query, approverID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query pending approvals: %w", err)
+	}
+	defer rows.Close()
+
+	approvals := []domain.Approval{}
+	for rows.Next() {
+		var approval domain.Approval
+		err := rows.Scan(
+			&approval.ID,
+			&approval.ReportID,
+			&approval.ApproverID,
+			&approval.Level,
+			&approval.Status,
+			&approval.Comments,
+			&approval.ApprovedAmount,
+			&approval.DecisionDate,
+			&approval.EscalationDate,
+			&approval.EscalatedTo,
+			&approval.Created,
+			&approval.Updated,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan approval: %w", err)
+		}
+		approvals = append(approvals, approval)
+	}
+
+	return approvals, nil
+}
+
+// GetPendingApprovalsByReportID retrieves all pending approvals for a specific report
+func (r *reportRepository) GetPendingApprovalsByReportID(ctx context.Context, reportID uuid.UUID) ([]domain.Approval, error) {
+	query := `
+		SELECT
+			id, report_id, approver_id, level, status,
+			comments, approved_amount, decision_date, escalation_date,
+			escalated_to, created, updated
+		FROM approvals
+		WHERE report_id = $1 AND status = 'pending'
+		ORDER BY level ASC
+	`
+
+	rows, err := r.client.Query(ctx, query, reportID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query pending approvals: %w", err)
+	}
+	defer rows.Close()
+
+	approvals := []domain.Approval{}
+	for rows.Next() {
+		var approval domain.Approval
+		err := rows.Scan(
+			&approval.ID,
+			&approval.ReportID,
+			&approval.ApproverID,
+			&approval.Level,
+			&approval.Status,
+			&approval.Comments,
+			&approval.ApprovedAmount,
+			&approval.DecisionDate,
+			&approval.EscalationDate,
+			&approval.EscalatedTo,
+			&approval.Created,
+			&approval.Updated,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan approval: %w", err)
+		}
+		approvals = append(approvals, approval)
+	}
+
+	return approvals, nil
+}
+
 // CreateApprovalHistory creates a new approval history entry
 func (r *reportRepository) CreateApprovalHistory(ctx context.Context, history *domain.ApprovalHistory) error {
 	query := `
