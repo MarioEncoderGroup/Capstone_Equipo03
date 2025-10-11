@@ -9,7 +9,7 @@ import (
 )
 
 // PrivateRoutes defines all private routes for MisViaticos API
-func PrivateRoutes(app *fiber.App, dbControl *postgresql.PostgresqlClient, tenantController *controllers.TenantController, userController *controllers.UserController, roleController *controllers.RoleController, permissionController *controllers.PermissionController, userRoleController *controllers.UserRoleController, rolePermissionController *controllers.RolePermissionController, expenseController *controllers.ExpenseController, policyController *controllers.PolicyController, rbacMiddleware *middlewares.RBACMiddleware) *fiber.App {
+func PrivateRoutes(app *fiber.App, dbControl *postgresql.PostgresqlClient, tenantController *controllers.TenantController, userController *controllers.UserController, roleController *controllers.RoleController, permissionController *controllers.PermissionController, userRoleController *controllers.UserRoleController, rolePermissionController *controllers.RolePermissionController, expenseController *controllers.ExpenseController, policyController *controllers.PolicyController, reportController *controllers.ReportController, approvalController *controllers.ApprovalController, rbacMiddleware *middlewares.RBACMiddleware) *fiber.App {
 	// Create authentication middleware
 	authMiddleware := middleware.AuthMiddleware(dbControl)
 	tenantMiddleware := middleware.RequireTenantMiddleware()
@@ -90,6 +90,28 @@ func PrivateRoutes(app *fiber.App, dbControl *postgresql.PostgresqlClient, tenan
 	// Receipt management routes
 	receipts := private.Group("/receipts", tenantMiddleware)
 	receipts.Delete("/:id", expenseController.DeleteReceipt)
+
+	// Expense Report management routes (core approval workflow)
+	reports := private.Group("/expense-reports", tenantMiddleware)
+	reports.Post("/", reportController.CreateReport)
+	reports.Get("/", reportController.GetUserReports)
+	reports.Get("/:id", reportController.GetReportByID)
+	reports.Put("/:id", reportController.UpdateReport)
+	reports.Delete("/:id", reportController.DeleteReport)
+	reports.Post("/:id/submit", reportController.SubmitReport)
+	reports.Post("/:id/expenses", reportController.AddExpensesToReport)
+	reports.Delete("/:id/expenses/:expenseId", reportController.RemoveExpenseFromReport)
+	reports.Post("/:id/comments", reportController.AddComment)
+	reports.Get("/:id/comments", reportController.GetReportComments)
+
+	// Approval management routes (approval workflow)
+	approvals := private.Group("/approvals", tenantMiddleware)
+	approvals.Get("/pending", approvalController.GetPendingApprovals)
+	approvals.Get("/reports/:id", approvalController.GetApprovalsByReport)
+	approvals.Post("/:id/approve", approvalController.ApproveReport)
+	approvals.Post("/:id/reject", approvalController.RejectReport)
+	approvals.Post("/:id/escalate", approvalController.EscalateApproval)
+	approvals.Get("/reports/:id/history", approvalController.GetApprovalHistory)
 
 	return app
 }
