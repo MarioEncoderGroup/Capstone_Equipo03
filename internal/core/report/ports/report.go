@@ -99,3 +99,18 @@ type ApprovalService interface {
 	// GetApprovalsByReport retorna todas las aprobaciones de un reporte
 	GetApprovalsByReport(ctx context.Context, reportID uuid.UUID) ([]domain.Approval, error)
 }
+
+// WorkflowEngine define la lógica del motor de workflows para aprobaciones
+type WorkflowEngine interface {
+	// CreateApprovals crea las aprobaciones necesarias según política y monto del reporte
+	CreateApprovals(ctx context.Context, report *domain.ExpenseReport) ([]domain.Approval, error)
+
+	// ProcessApproval procesa una aprobación y determina el siguiente paso en el workflow
+	ProcessApproval(ctx context.Context, approval *domain.Approval) error
+
+	// EscalateApproval escala una aprobación al siguiente nivel automáticamente
+	EscalateApproval(ctx context.Context, approvalID uuid.UUID) error
+
+	// GetNextApprover determina el siguiente aprobador según la política y nivel
+	GetNextApprover(ctx context.Context, reportID uuid.UUID, currentLevel int) (*uuid.UUID, error)
+}
