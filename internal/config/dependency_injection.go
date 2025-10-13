@@ -25,6 +25,8 @@ import (
 	communeServices "github.com/JoseLuis21/mv-backend/internal/core/commune/services"
 	expenseAdapters "github.com/JoseLuis21/mv-backend/internal/core/expense/adapters"
 	expenseServices "github.com/JoseLuis21/mv-backend/internal/core/expense/services"
+	policyAdapters "github.com/JoseLuis21/mv-backend/internal/core/policy/adapters"
+	policyServices "github.com/JoseLuis21/mv-backend/internal/core/policy/services"
 	"github.com/JoseLuis21/mv-backend/internal/libraries/ocr"
 	"github.com/JoseLuis21/mv-backend/internal/libraries/postgresql"
 	redis_custom "github.com/JoseLuis21/mv-backend/internal/libraries/redis"
@@ -51,6 +53,7 @@ type Dependencies struct {
 	CommuneController        *controllers.CommuneController
 	ExpenseController        *controllers.ExpenseController
 	OCRController            *controllers.OCRController
+	PolicyController         *controllers.PolicyController
 
 	// Middlewares
 	RBACMiddleware *middlewares.RBACMiddleware
@@ -77,6 +80,7 @@ func NewDependencies(dbControl *postgresql.PostgresqlClient) (*Dependencies, err
 	communeRepo := communeAdapters.NewPostgreSQLCommuneRepository(dbControl)
 	expenseRepo := expenseAdapters.NewPostgreSQLExpenseRepository(dbControl)
 	categoryRepo := expenseAdapters.NewPostgreSQLCategoryRepository(dbControl)
+	policyRepo := policyAdapters.NewPolicyRepository(dbControl)
 
 	// 3. Crear servicios auxiliares usando módulos genéricos
 	passwordHasher := hasher.NewService()
@@ -109,6 +113,8 @@ func NewDependencies(dbControl *postgresql.PostgresqlClient) (*Dependencies, err
 	regionService := regionServices.NewRegionService(regionRepo)
 	communeService := communeServices.NewCommuneService(communeRepo)
 	expenseService := expenseServices.NewExpenseService(expenseRepo, categoryRepo)
+	policyService := policyServices.NewPolicyService(policyRepo)
+	ruleEngine := policyServices.NewRuleEngine(policyRepo)
 
 	// 5. Inicializar roles y permisos del sistema
 	// Esto debe ejecutarse al inicio de la aplicación para garantizar que existan los roles necesarios
@@ -134,6 +140,7 @@ func NewDependencies(dbControl *postgresql.PostgresqlClient) (*Dependencies, err
 	regionController := controllers.NewRegionController(regionService)
 	communeController := controllers.NewCommuneController(communeService)
 	expenseController := controllers.NewExpenseController(expenseService, validator)
+	policyController := controllers.NewPolicyController(policyService, ruleEngine, validator)
 
 	// 8. Configurar OCR dependencies (opcional si credenciales no están configuradas)
 	var ocrController *controllers.OCRController
@@ -183,6 +190,7 @@ func NewDependencies(dbControl *postgresql.PostgresqlClient) (*Dependencies, err
 		CommuneController:        communeController,
 		ExpenseController:        expenseController,
 		OCRController:            ocrController,
+		PolicyController:         policyController,
 		RBACMiddleware:           rbacMiddleware,
 		DBControl:                dbControl,
 		Validator:                validator,

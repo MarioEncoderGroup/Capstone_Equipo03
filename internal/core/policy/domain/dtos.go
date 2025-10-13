@@ -84,3 +84,21 @@ type PoliciesResponse struct {
 	Limit    int              `json:"limit"`
 	Offset   int              `json:"offset"`
 }
+
+// ValidateExpenseDto representa los datos para validar un gasto
+type ValidateExpenseDto struct {
+	CategoryID  uuid.UUID `json:"category_id" validate:"required,uuid"`
+	Amount      float64   `json:"amount" validate:"required,gt=0"`
+	ExpenseDate string    `json:"expense_date" validate:"required"` // formato: 2006-01-02
+	Currency    string    `json:"currency" validate:"omitempty,oneof=CLP USD EUR"`
+	Description string    `json:"description" validate:"omitempty,max=500"`
+}
+
+// ValidationResponse representa la respuesta de validación de un gasto
+type ValidationResponse struct {
+	IsValid          bool           `json:"is_valid"`
+	Violations       []Violation    `json:"violations,omitempty"`
+	RequiresApproval bool           `json:"requires_approval"`
+	ApprovalLevel    int            `json:"approval_level,omitempty"`
+	Approvers        []ApproverInfo `json:"approvers,omitempty"`
+}
