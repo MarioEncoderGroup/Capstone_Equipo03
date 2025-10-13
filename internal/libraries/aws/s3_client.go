@@ -85,7 +85,7 @@ func (c *S3Client) UploadFile(ctx context.Context, key string, data []byte, cont
 	input := &s3.PutObjectInput{
 		Bucket:      aws.String(c.bucket),
 		Key:         aws.String(key),
-		Body:        aws.ReadSeekCloser(NewBytesReadSeekCloser(data)),
+		Body:        NewBytesReadSeekCloser(data),
 		ContentType: aws.String(contentType),
 		ACL:         types.ObjectCannedACLPrivate, // Archivo privado
 	}
