@@ -36,11 +36,14 @@ services:
       - POSTGRESQL_CONTROL_PORT=5432
       - POSTGRESQL_NODE1_HOST=postgres
       - REDIS_HOST=redis
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
     volumes:
       - ./email_templates:/app/email_templates:ro
     networks:
@@ -71,10 +74,30 @@ services:
     networks:
       - misviaticos-network
 
+  # RabbitMQ for async notification queue
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    ports:
+      - "5672:5672"   # AMQP protocol
+      - "15672:15672" # Management UI
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - misviaticos-network
+
 volumes:
   postgres_data:
   redis_data:
   minio_data:
+  rabbitmq_data:
 
 networks:
   misviaticos-network:
