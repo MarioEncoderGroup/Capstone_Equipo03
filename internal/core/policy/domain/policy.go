@@ -59,3 +59,28 @@ type PolicySubmitter struct {
 	Department *string    `json:"department,omitempty"`
 	Created    time.Time  `json:"created_at"`
 }
+
+// Violation representa una violación de regla de política
+type Violation struct {
+	Field    string `json:"field"`
+	Message  string `json:"message"`
+	Severity string `json:"severity"` // error, warning
+}
+
+// ExpenseValidationInput representa los datos de un gasto para validación
+type ExpenseValidationInput struct {
+	CategoryID  uuid.UUID  `json:"category_id"`
+	Amount      float64    `json:"amount"`
+	Currency    string     `json:"currency"`
+	ExpenseDate time.Time  `json:"expense_date"`
+	UserID      uuid.UUID  `json:"user_id"`
+	Description *string    `json:"description,omitempty"`
+}
+
+// ApproverInfo representa información de un aprobador
+type ApproverInfo struct {
+	UserID    uuid.UUID `json:"user_id"`
+	Level     int       `json:"level"`
+	AmountMin *float64  `json:"amount_min,omitempty"`
+	AmountMax *float64  `json:"amount_max,omitempty"`
+}

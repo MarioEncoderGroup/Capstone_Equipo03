@@ -56,3 +56,15 @@ type PolicyService interface {
 	AddSubmitter(ctx context.Context, dto domain.CreatePolicySubmitterDto) (*domain.PolicySubmitter, error)
 	RemoveSubmitter(ctx context.Context, id uuid.UUID) error
 }
+
+// RuleEngine define la lógica de validación de gastos contra políticas
+type RuleEngine interface {
+	// ValidateExpense valida un gasto contra una política y retorna violaciones
+	ValidateExpense(ctx context.Context, expense *domain.ExpenseValidationInput, policy *domain.Policy) ([]domain.Violation, error)
+
+	// CheckApprovalRequired determina si un gasto requiere aprobación y el nivel necesario
+	CheckApprovalRequired(ctx context.Context, expense *domain.ExpenseValidationInput, policy *domain.Policy) (bool, int, error)
+
+	// GetApprovers retorna los aprobadores necesarios según el monto del gasto
+	GetApprovers(ctx context.Context, expense *domain.ExpenseValidationInput, policy *domain.Policy) ([]domain.ApproverInfo, error)
+}
