@@ -30,6 +30,8 @@ type ReportRepository interface {
 	GetApprovalByID(ctx context.Context, approvalID uuid.UUID) (*domain.Approval, error)
 	UpdateApproval(ctx context.Context, approval *domain.Approval) error
 	GetPendingApprovalForUser(ctx context.Context, reportID, userID uuid.UUID) (*domain.Approval, error)
+	GetPendingApprovalsByApprover(ctx context.Context, approverID uuid.UUID) ([]domain.Approval, error)
+	GetPendingApprovalsByReportID(ctx context.Context, reportID uuid.UUID) ([]domain.Approval, error)
 
 	// Approval History
 	CreateApprovalHistory(ctx context.Context, history *domain.ApprovalHistory) error
@@ -69,4 +71,31 @@ type ReportService interface {
 	CanEditReport(ctx context.Context, reportID, userID uuid.UUID) (bool, error)
 	CanDeleteReport(ctx context.Context, reportID, userID uuid.UUID) (bool, error)
 	CanSubmitReport(ctx context.Context, reportID uuid.UUID) (bool, error)
+}
+
+// ApprovalService define la lógica de negocio para gestión de aprobaciones
+type ApprovalService interface {
+	// GetPendingApprovals retorna aprobaciones pendientes del usuario
+	GetPendingApprovals(ctx context.Context, approverID uuid.UUID) ([]domain.Approval, error)
+
+	// GetPendingApprovalsByReport retorna aprobaciones pendientes de un reporte específico
+	GetPendingApprovalsByReport(ctx context.Context, reportID uuid.UUID) ([]domain.Approval, error)
+
+	// Approve aprueba una solicitud
+	Approve(ctx context.Context, approvalID, approverID uuid.UUID, dto *domain.ApproveReportDto) error
+
+	// Reject rechaza una solicitud
+	Reject(ctx context.Context, approvalID, approverID uuid.UUID, dto *domain.RejectReportDto) error
+
+	// GetHistory retorna historial de aprobaciones de un reporte
+	GetHistory(ctx context.Context, reportID uuid.UUID) ([]domain.ApprovalHistory, error)
+
+	// GetApprovalHistory retorna historial de una aprobación específica
+	GetApprovalHistory(ctx context.Context, approvalID uuid.UUID) ([]domain.ApprovalHistory, error)
+
+	// Escalate escala una aprobación a otro aprobador
+	Escalate(ctx context.Context, approvalID, currentApproverID, newApproverID uuid.UUID, reason string) error
+
+	// GetApprovalsByReport retorna todas las aprobaciones de un reporte
+	GetApprovalsByReport(ctx context.Context, reportID uuid.UUID) ([]domain.Approval, error)
 }
